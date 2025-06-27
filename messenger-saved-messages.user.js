@@ -218,6 +218,7 @@
         // Create toggle button
         const toggleButton = document.createElement('div');
         toggleButton.className = 'saved-messages-toggle';
+        toggleButton.dataset.savedMessageUiElement = 'true';
         toggleButton.textContent = '📝';
         toggleButton.title = 'Saved Messages (Alt+M)';
         document.body.appendChild(toggleButton);
@@ -225,41 +226,49 @@
         // Create container
         const container = document.createElement('div');
         container.className = 'saved-messages-container hidden';
+        container.dataset.savedMessageUiElement = 'true';
         
         // Create header
         const header = document.createElement('div');
         header.className = 'saved-messages-header';
         header.textContent = 'Saved Messages';
         header.innerHTML += '<span class="keyboard-shortcut">Alt+M</span>';
+        header.dataset.savedMessageUiElement = 'true';
         
         // Create close button
         const closeButton = document.createElement('span');
         closeButton.className = 'saved-messages-close';
         closeButton.textContent = '×';
+        closeButton.dataset.savedMessageUiElement = 'true';
         header.appendChild(closeButton);
         
         // Create menu
         const menu = document.createElement('div');
         menu.className = 'saved-messages-menu';
+        menu.dataset.savedMessageUiElement = 'true';
         
         const exportButton = document.createElement('button');
         exportButton.textContent = 'Export All';
+        exportButton.dataset.savedMessageUiElement = 'true';
         exportButton.onclick = exportSavedMessages;
         
         const importButton = document.createElement('button');
         importButton.textContent = 'Import';
+        importButton.dataset.savedMessageUiElement = 'true';
         importButton.onclick = triggerImportDialog;
         
         const debugButton = document.createElement('button');
         debugButton.textContent = 'Debug';
         debugButton.title = 'Find input field selectors';
         debugButton.style.marginLeft = 'auto';
+        debugButton.dataset.savedMessageUiElement = 'true';
         debugButton.onclick = debugInputFields;
         
         const debugToggleButton = document.createElement('button');
         debugToggleButton.textContent = config.debugMode ? '🐞 On' : '🐞 Off';
         debugToggleButton.title = 'Toggle debug mode';
         debugToggleButton.style.marginLeft = '5px';
+        debugToggleButton.dataset.savedMessageUiElement = 'true';
         debugToggleButton.onclick = toggleDebugMode;
         
         menu.appendChild(exportButton);
@@ -275,24 +284,29 @@
         fileInput.type = 'file';
         fileInput.accept = '.json';
         fileInput.className = 'file-input-hidden';
+        fileInput.dataset.savedMessageUiElement = 'true';
         fileInput.onchange = importSavedMessages;
         document.body.appendChild(fileInput);
         
         // Create body
         const body = document.createElement('div');
         body.className = 'saved-messages-body';
+        body.dataset.savedMessageUiElement = 'true';
         
         // Create input area
         const inputArea = document.createElement('div');
         inputArea.className = 'saved-messages-input';
+        inputArea.dataset.savedMessageUiElement = 'true';
         
         const textarea = document.createElement('textarea');
         textarea.placeholder = 'Type a message to save... (Alt+S to save)';
         textarea.rows = 2;
+        textarea.dataset.savedMessageUiElement = 'true';
         
         const saveButton = document.createElement('button');
         saveButton.textContent = '+';
         saveButton.title = 'Save Message (Alt+S)';
+        saveButton.dataset.savedMessageUiElement = 'true';
         
         inputArea.appendChild(textarea);
         inputArea.appendChild(saveButton);
@@ -475,20 +489,25 @@
             categoryMessages.forEach((message, index) => {
                 const messageElement = document.createElement('div');
                 messageElement.className = 'saved-messages-item';
+                messageElement.dataset.savedMessageUiElement = 'true';
                 
                 const messageText = document.createElement('div');
                 messageText.textContent = message.text;
+                messageText.dataset.savedMessageUiElement = 'true';
                 
                 const timestampDiv = document.createElement('div');
                 timestampDiv.className = 'saved-messages-timestamp';
                 timestampDiv.textContent = formatTimestamp(message.timestamp);
+                timestampDiv.dataset.savedMessageUiElement = 'true';
                 
                 const actionsDiv = document.createElement('div');
                 actionsDiv.className = 'saved-messages-actions';
+                actionsDiv.dataset.savedMessageUiElement = 'true';
                 
                 const useButton = document.createElement('button');
                 useButton.className = 'saved-message-use';
                 useButton.textContent = 'Use';
+                useButton.dataset.savedMessageUiElement = 'true';
                 useButton.onclick = () => useMessage(message.text);
                 
                 const copyButton = document.createElement('button');
@@ -497,11 +516,13 @@
                 copyButton.style.backgroundColor = '#4CAF50';
                 copyButton.style.color = 'white';
                 copyButton.title = 'Copy to clipboard';
+                copyButton.dataset.savedMessageUiElement = 'true';
                 copyButton.onclick = () => copyToClipboard(message.text);
                 
                 const deleteButton = document.createElement('button');
                 deleteButton.className = 'saved-message-delete';
                 deleteButton.textContent = 'Delete';
+                deleteButton.dataset.savedMessageUiElement = 'true';
                 deleteButton.onclick = () => deleteMessage(savedMessages.indexOf(message));
                 
                 actionsDiv.appendChild(useButton);
@@ -519,18 +540,59 @@
 
     // Function to use a saved message with retry mechanism
     function useMessage(text) {
-        // Try to insert the message, and if it fails, retry after a short delay
-        const attemptInsert = (remainingTries = 3) => {
-            const result = insertMessageIntoInputField(text);
-            
-            if (!result && remainingTries > 0) {
-                // Wait a moment and try again, Facebook might be updating the DOM
-                setTimeout(() => attemptInsert(remainingTries - 1), 300);
-            }
-        };
+        // Save a reference to our own input field to avoid modifying it
+        const ourTextarea = ui.textarea;
         
-        // Start the attempt process
-        attemptInsert();
+        // Blur our own textarea to prevent accidentally updating it
+        if (document.activeElement === ourTextarea) {
+            ourTextarea.blur();
+        }
+        
+        // Hide the saved messages panel immediately to prevent events from affecting it
+        toggleContainer();
+        
+        // Small delay to ensure UI update happens before text insertion
+        setTimeout(() => {
+            // Try to insert the message, and if it fails, retry after a short delay
+            const attemptInsert = (remainingTries = 3) => {
+                const result = insertMessageIntoInputField(text);
+                
+                if (!result && remainingTries > 0) {
+                    // Wait a moment and try again, Facebook might be updating the DOM
+                    setTimeout(() => attemptInsert(remainingTries - 1), 300);
+                }
+            };
+            
+            // Start the attempt process
+            attemptInsert();
+        }, 50);
+    }
+    
+    // Helper function to check if element belongs to our UI
+    function isOurUIElement(element) {
+        if (!element) return false;
+        
+        // Check if the element itself has our marker
+        if (element.dataset && element.dataset.savedMessageUiElement === 'true') {
+            return true;
+        }
+        
+        // Check if it's within our UI container
+        if (ui.container && ui.container.contains(element)) {
+            return true;
+        }
+        
+        // Check if it's our toggle button
+        if (ui.toggleButton && ui.toggleButton.contains(element)) {
+            return true;
+        }
+        
+        // Check if it's part of the file input
+        if (fileInput && fileInput.contains(element)) {
+            return true;
+        }
+        
+        return false;
     }
     
     // Helper function to actually insert the message
@@ -563,7 +625,7 @@
         const specificSelector = 'div.xzsf02u.x1a2a7pz.x1n2onr6.x14wi4xw.x1iyjqo2.x1gh3ibb.xisnujt.xeuugli.x1odjw0f.notranslate[contenteditable="true"][role="textbox"][spellcheck="true"][data-lexical-editor="true"]';
         const specificElement = document.querySelector(specificSelector);
         
-        if (specificElement) {
+        if (specificElement && !isOurUIElement(specificElement)) {
             inputField = specificElement;
             matchedSelector = specificSelector;
         } else {
@@ -572,21 +634,26 @@
                 const elements = document.querySelectorAll(selector);
                 if (elements.length > 0) {
                     // If multiple elements match, prefer the one closer to the bottom of the page
+                    // and ensure it's not part of our own UI
                     if (elements.length > 1) {
                         let maxBottom = 0;
                         for (const el of elements) {
+                            if (isOurUIElement(el)) continue; // Skip our own UI elements
+                            
                             const rect = el.getBoundingClientRect();
                             if (rect.bottom > maxBottom && rect.width > 50) { // Ensure it's not a tiny element
                                 maxBottom = rect.bottom;
                                 inputField = el;
                             }
                         }
-                    } else {
+                    } else if (!isOurUIElement(elements[0])) {
                         inputField = elements[0];
                     }
                     
-                    matchedSelector = selector;
-                    break;
+                    if (inputField) {
+                        matchedSelector = selector;
+                        break;
+                    }
                 }
             }
         }
@@ -595,11 +662,12 @@
             console.log('Input field search results:', { 
                 found: !!inputField, 
                 matchedSelector, 
-                element: inputField 
+                element: inputField,
+                isOurElement: inputField ? isOurUIElement(inputField) : false
             });
         }
         
-        if (inputField) {
+        if (inputField && !isOurUIElement(inputField)) {
             try {
                 // Try multiple techniques to insert text
                 
@@ -632,9 +700,6 @@
                     }, 50);
                 }, 50);
                 
-                // Hide the saved messages panel
-                toggleContainer();
-                
                 if (config.debugMode) {
                     console.log('Message insertion attempted using selector:', matchedSelector);
                 }
@@ -647,7 +712,7 @@
                 return false;
             }
         } else {
-            console.error('Could not find message input field');
+            console.error('Could not find suitable message input field (that is not part of our own UI)');
             alert('Could not find message input field. Please make sure you are in a Messenger chat.\n\nIf this error persists, please set debugMode to true in the script and use the Debug button to find working selectors, or use the "Copy" button instead.');
             return false;
         }
@@ -674,6 +739,12 @@
     
     // Insert text directly into the element
     function insertTextDirectly(element, text) {
+        // Additional safety check to ensure we're not affecting our own UI
+        if (isOurUIElement(element)) {
+            console.error('Attempted to modify our own UI element');
+            return false;
+        }
+        
         try {
             // First clear the field
             element.innerHTML = '';
@@ -717,6 +788,12 @@
     
     // Try to paste text via clipboard API
     function tryClipboardPaste(element, text) {
+        // Additional safety check to ensure we're not affecting our own UI
+        if (isOurUIElement(element)) {
+            console.error('Attempted to modify our own UI element');
+            return false;
+        }
+        
         try {
             // Focus the element
             element.focus();
@@ -767,6 +844,12 @@
     
     // Special method to try to insert text via React properties
     function tryReactInsert(element, text) {
+        // Additional safety check to ensure we're not affecting our own UI
+        if (isOurUIElement(element)) {
+            console.error('Attempted to modify our own UI element');
+            return false;
+        }
+        
         try {
             // This is a hack to access Facebook's React instance
             // Look for React internal properties
