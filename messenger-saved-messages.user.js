@@ -15,6 +15,16 @@
 (function() {
     'use strict';
 
+    // Configuration options
+    const config = {
+        debugMode: GM_getValue('debugMode', false)  // Get debug mode from saved settings
+    };
+
+    // Save debug mode setting
+    function saveConfig() {
+        GM_setValue('debugMode', config.debugMode);
+    }
+
     // Add custom styles
     GM_addStyle(`
         .saved-messages-container {
@@ -240,8 +250,25 @@
         importButton.textContent = 'Import';
         importButton.onclick = triggerImportDialog;
         
+        const debugButton = document.createElement('button');
+        debugButton.textContent = 'Debug';
+        debugButton.title = 'Find input field selectors';
+        debugButton.style.marginLeft = 'auto';
+        debugButton.onclick = debugInputFields;
+        
+        const debugToggleButton = document.createElement('button');
+        debugToggleButton.textContent = config.debugMode ? '🐞 On' : '🐞 Off';
+        debugToggleButton.title = 'Toggle debug mode';
+        debugToggleButton.style.marginLeft = '5px';
+        debugToggleButton.onclick = toggleDebugMode;
+        
         menu.appendChild(exportButton);
         menu.appendChild(importButton);
+        menu.appendChild(debugToggleButton);
+        
+        if (config.debugMode) {
+            menu.appendChild(debugButton);
+        }
         
         // Hidden file input for import
         fileInput = document.createElement('input');
@@ -317,6 +344,10 @@
     // Register in Tampermonkey menu
     GM_registerMenuCommand("Toggle Saved Messages", toggleContainer);
     GM_registerMenuCommand("Export All Saved Messages", exportSavedMessages);
+    GM_registerMenuCommand("Toggle Debug Mode", toggleDebugMode);
+    if (config.debugMode) {
+        GM_registerMenuCommand("Debug Input Fields", debugInputFields);
+    }
 
     // Load saved messages when URL changes
     function checkUrlChange() {
@@ -460,12 +491,21 @@
                 useButton.textContent = 'Use';
                 useButton.onclick = () => useMessage(message.text);
                 
+                const copyButton = document.createElement('button');
+                copyButton.className = 'saved-message-copy';
+                copyButton.textContent = 'Copy';
+                copyButton.style.backgroundColor = '#4CAF50';
+                copyButton.style.color = 'white';
+                copyButton.title = 'Copy to clipboard';
+                copyButton.onclick = () => copyToClipboard(message.text);
+                
                 const deleteButton = document.createElement('button');
                 deleteButton.className = 'saved-message-delete';
                 deleteButton.textContent = 'Delete';
                 deleteButton.onclick = () => deleteMessage(savedMessages.indexOf(message));
                 
                 actionsDiv.appendChild(useButton);
+                actionsDiv.appendChild(copyButton);
                 actionsDiv.appendChild(deleteButton);
                 
                 messageElement.appendChild(messageText);
@@ -477,22 +517,285 @@
         });
     }
 
-    // Function to use a saved message
+    // Function to use a saved message with retry mechanism
     function useMessage(text) {
-        // Find the message input field
-        const inputField = document.querySelector('[contenteditable="true"][role="textbox"]');
+        // Try to insert the message, and if it fails, retry after a short delay
+        const attemptInsert = (remainingTries = 3) => {
+            const result = insertMessageIntoInputField(text);
+            
+            if (!result && remainingTries > 0) {
+                // Wait a moment and try again, Facebook might be updating the DOM
+                setTimeout(() => attemptInsert(remainingTries - 1), 300);
+            }
+        };
+        
+        // Start the attempt process
+        attemptInsert();
+    }
+    
+    // Helper function to actually insert the message
+    function insertMessageIntoInputField(text) {
+        // Find the message input field - try multiple possible selectors
+        let inputField = null;
+        let matchedSelector = '';
+        
+        // Try different selectors that might match the Messenger input field
+        const possibleSelectors = [
+            // Add the exact selector from the user's console output first (highest priority)
+            'div[aria-label="Message"][contenteditable="true"][data-lexical-editor="true"]',
+            '.xzsf02u.notranslate[contenteditable="true"][role="textbox"]',
+            '.notranslate[contenteditable="true"][data-lexical-editor="true"]',
+            '[aria-label="Message"][contenteditable="true"]',
+            // Previous selectors as fallback
+            '[contenteditable="true"][role="textbox"]',
+            '[contenteditable="true"][data-lexical-editor="true"]',
+            '.xzsf02u[role="textbox"]',
+            '[aria-label="Message"]',
+            '[placeholder="Aa"]',
+            '.notranslate[contenteditable="true"]',
+            'div[role="textbox"][spellcheck="true"]',
+            // Try to find the bottom-most contenteditable element (likely to be the input)
+            'form [contenteditable="true"]',
+            '[contenteditable="true"]'
+        ];
+        
+        // First try direct match with the console output
+        const specificSelector = 'div.xzsf02u.x1a2a7pz.x1n2onr6.x14wi4xw.x1iyjqo2.x1gh3ibb.xisnujt.xeuugli.x1odjw0f.notranslate[contenteditable="true"][role="textbox"][spellcheck="true"][data-lexical-editor="true"]';
+        const specificElement = document.querySelector(specificSelector);
+        
+        if (specificElement) {
+            inputField = specificElement;
+            matchedSelector = specificSelector;
+        } else {
+            // Try the other selectors if specific one failed
+            for (const selector of possibleSelectors) {
+                const elements = document.querySelectorAll(selector);
+                if (elements.length > 0) {
+                    // If multiple elements match, prefer the one closer to the bottom of the page
+                    if (elements.length > 1) {
+                        let maxBottom = 0;
+                        for (const el of elements) {
+                            const rect = el.getBoundingClientRect();
+                            if (rect.bottom > maxBottom && rect.width > 50) { // Ensure it's not a tiny element
+                                maxBottom = rect.bottom;
+                                inputField = el;
+                            }
+                        }
+                    } else {
+                        inputField = elements[0];
+                    }
+                    
+                    matchedSelector = selector;
+                    break;
+                }
+            }
+        }
+        
+        if (config.debugMode) {
+            console.log('Input field search results:', { 
+                found: !!inputField, 
+                matchedSelector, 
+                element: inputField 
+            });
+        }
         
         if (inputField) {
-            // Set text and dispatch input event to trigger messenger's update
-            inputField.textContent = text;
-            const event = new Event('input', { bubbles: true });
-            inputField.dispatchEvent(event);
+            try {
+                // Try multiple techniques to insert text
+                
+                // Method 1: Direct insertion - reliable but doesn't always update Facebook's React state
+                insertTextDirectly(inputField, text);
+                
+                // Method 2: Try to trigger a React insert using a hack
+                setTimeout(() => {
+                    if (!checkTextInserted(inputField, text)) {
+                        tryReactInsert(inputField, text);
+                    }
+                    
+                    // Method 3: Use clipboard paste API if available and previous methods failed
+                    setTimeout(() => {
+                        if (!checkTextInserted(inputField, text)) {
+                            tryClipboardPaste(inputField, text);
+                        }
+                        
+                        // Focus the input field and position cursor at end
+                        setTimeout(() => {
+                            inputField.focus();
+                            positionCursorAtEnd(inputField);
+                            
+                            // If there's a "send" button visible, we could optionally focus that too
+                            const sendButton = document.querySelector('button[aria-label="Send"]');
+                            if (sendButton) {
+                                setTimeout(() => sendButton.focus(), 50);
+                            }
+                        }, 50);
+                    }, 50);
+                }, 50);
+                
+                // Hide the saved messages panel
+                toggleContainer();
+                
+                if (config.debugMode) {
+                    console.log('Message insertion attempted using selector:', matchedSelector);
+                }
+                return true;
+            } catch (error) {
+                console.error('Error inserting message:', error);
+                if (config.debugMode) {
+                    alert('Error inserting message: ' + error.message);
+                }
+                return false;
+            }
+        } else {
+            console.error('Could not find message input field');
+            alert('Could not find message input field. Please make sure you are in a Messenger chat.\n\nIf this error persists, please set debugMode to true in the script and use the Debug button to find working selectors, or use the "Copy" button instead.');
+            return false;
+        }
+    }
+    
+    // Position cursor at the end of content
+    function positionCursorAtEnd(element) {
+        try {
+            // Create range at end of content
+            const range = document.createRange();
+            range.selectNodeContents(element);
+            range.collapse(false); // collapse to end
             
-            // Focus the input field
-            inputField.focus();
+            // Apply the selection
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        } catch (e) {
+            if (config.debugMode) {
+                console.log('Could not position cursor at end:', e);
+            }
+        }
+    }
+    
+    // Insert text directly into the element
+    function insertTextDirectly(element, text) {
+        try {
+            // First clear the field
+            element.innerHTML = '';
             
-            // Hide the saved messages panel
-            toggleContainer();
+            // Try insertText command (most reliable for contenteditable elements)
+            const success = document.execCommand('insertText', false, text);
+            
+            // If that failed, try setting the content directly
+            if (!success || element.textContent !== text) {
+                // Try direct content setting
+                element.textContent = text;
+                
+                // Lexical editor often uses paragraph tags
+                if (element.getAttribute('data-lexical-editor') === 'true') {
+                    // Create paragraph structure that Lexical expects
+                    element.innerHTML = `<p class="xat24cr xdj266r"><span data-lexical-text="true">${text}</span></p>`;
+                } else {
+                    // Handle linebreaks for non-Lexical editors
+                    element.innerHTML = text.replace(/\n/g, '<br>');
+                }
+            }
+            
+            // Dispatch events to notify React/Facebook
+            ['input', 'change'].forEach(eventType => {
+                try {
+                    const event = new Event(eventType, { bubbles: true });
+                    element.dispatchEvent(event);
+                } catch (e) {
+                    if (config.debugMode) {
+                        console.log(`Failed to dispatch ${eventType} event:`, e);
+                    }
+                }
+            });
+            
+            return true;
+        } catch (e) {
+            console.log('Direct text insertion failed:', e);
+            return false;
+        }
+    }
+    
+    // Try to paste text via clipboard API
+    function tryClipboardPaste(element, text) {
+        try {
+            // Focus the element
+            element.focus();
+            
+            // Try to use modern Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                // Save current clipboard content
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        // Execute paste command
+                        document.execCommand('paste');
+                    })
+                    .catch(e => {
+                        console.log('Clipboard API paste failed:', e);
+                    });
+            } else {
+                // Fallback to older paste event
+                const pasteEvent = new ClipboardEvent('paste', {
+                    bubbles: true,
+                    cancelable: true,
+                    clipboardData: new DataTransfer()
+                });
+                
+                // Try to set clipboard data
+                try {
+                    Object.defineProperty(pasteEvent.clipboardData, 'getData', {
+                        value: () => text
+                    });
+                    element.dispatchEvent(pasteEvent);
+                } catch (e) {
+                    console.log('Clipboard event paste failed:', e);
+                }
+            }
+            
+            return true;
+        } catch (e) {
+            console.log('Clipboard paste failed:', e);
+            return false;
+        }
+    }
+    
+    // Helper function to check if text was successfully inserted
+    function checkTextInserted(element, expectedText) {
+        const normalizedExpected = expectedText.trim();
+        const normalizedActual = element.textContent.trim();
+        return normalizedActual.includes(normalizedExpected);
+    }
+    
+    // Special method to try to insert text via React properties
+    function tryReactInsert(element, text) {
+        try {
+            // This is a hack to access Facebook's React instance
+            // Look for React internal properties
+            for (const key in element) {
+                if (key.startsWith('__reactProps$') || key.startsWith('__reactFiber$')) {
+                    // Found React internal properties
+                    // Try to trigger a change via a custom paste event
+                    const pasteEvent = new ClipboardEvent('paste', {
+                        bubbles: true,
+                        clipboardData: new DataTransfer()
+                    });
+                    
+                    // Set clipboard data
+                    Object.defineProperty(pasteEvent.clipboardData, 'getData', {
+                        value: () => text
+                    });
+                    
+                    element.dispatchEvent(pasteEvent);
+                    return true;
+                }
+            }
+            
+            // If we can't find React internals, try simulating a paste command
+            document.execCommand('insertText', false, text);
+            
+            return false;
+        } catch (e) {
+            console.log('React insert attempt failed:', e);
+            return false;
         }
     }
 
@@ -609,6 +912,174 @@
         downloadAnchorNode.remove();
     }
 
+    // Debug function to find input field selectors
+    function debugInputFields() {
+        const selectors = [
+            '[contenteditable="true"]',
+            '[role="textbox"]',
+            '[contenteditable="true"][role="textbox"]',
+            '[contenteditable="true"][data-lexical-editor="true"]',
+            '.xzsf02u',
+            '.notranslate',
+            '[aria-label="Message"]',
+            '[aria-label*="essage"]',
+            '[placeholder="Aa"]',
+            '.notranslate[contenteditable="true"]',
+            'div[role="textbox"]',
+            'div[contenteditable="true"]'
+        ];
+        
+        const results = selectors.map(selector => {
+            const elements = document.querySelectorAll(selector);
+            return {
+                selector,
+                count: elements.length,
+                elements: Array.from(elements).map(el => ({
+                    tagName: el.tagName,
+                    classes: el.className,
+                    attributes: {
+                        role: el.getAttribute('role'),
+                        contenteditable: el.getAttribute('contenteditable'),
+                        'data-lexical-editor': el.getAttribute('data-lexical-editor'),
+                        'aria-label': el.getAttribute('aria-label'),
+                        spellcheck: el.getAttribute('spellcheck')
+                    },
+                    text: el.textContent.substring(0, 20) + (el.textContent.length > 20 ? '...' : ''),
+                    rect: el.getBoundingClientRect()
+                }))
+            };
+        });
+        
+        // Find closest to bottom of page (likely the input field)
+        let maxBottom = 0;
+        let bottomElement = null;
+        document.querySelectorAll('[contenteditable="true"]').forEach(el => {
+            const rect = el.getBoundingClientRect();
+            if (rect.bottom > maxBottom) {
+                maxBottom = rect.bottom;
+                bottomElement = el;
+            }
+        });
+        
+        console.log('Potential Input Field Selectors:', results);
+        console.log('Likely input field (bottom-most contenteditable):', bottomElement);
+        
+        if (bottomElement) {
+            console.log('Bottom element classes:', bottomElement.className);
+            console.log('Bottom element attributes:', {
+                role: bottomElement.getAttribute('role'),
+                contenteditable: bottomElement.getAttribute('contenteditable'),
+                'data-lexical-editor': bottomElement.getAttribute('data-lexical-editor'),
+                'aria-label': bottomElement.getAttribute('aria-label'),
+                spellcheck: bottomElement.getAttribute('spellcheck')
+            });
+            
+            // Create accurate CSS selector for this element
+            let accurateSelector = bottomElement.tagName.toLowerCase();
+            if (bottomElement.className) {
+                accurateSelector += '.' + bottomElement.className.trim().replace(/\s+/g, '.');
+            }
+            ['role', 'contenteditable', 'data-lexical-editor', 'aria-label', 'spellcheck'].forEach(attr => {
+                const value = bottomElement.getAttribute(attr);
+                if (value) {
+                    accurateSelector += `[${attr}="${value}"]`;
+                }
+            });
+            
+            console.log('Accurate selector for bottom element:', accurateSelector);
+            alert('Check your browser console for detailed results. The most likely input field has been identified with selector: ' + accurateSelector);
+            
+            // Test with a temp message
+            const origContent = bottomElement.innerHTML;
+            try {
+                bottomElement.innerHTML = '<p>⚠️ Test message - will be removed in 2 seconds ⚠️</p>';
+                setTimeout(() => {
+                    bottomElement.innerHTML = origContent;
+                }, 2000);
+            } catch (e) {
+                console.error('Error setting test message:', e);
+            }
+        }
+        
+        // Show alert with summary
+        const matchingSelectorsList = results
+            .filter(r => r.count > 0)
+            .map(r => `${r.selector}: ${r.count} element(s)`)
+            .join('\n');
+        
+        alert(`Potential input field selectors found:\n${matchingSelectorsList}\n\nCheck browser console for details.`);
+    }
+
+    // Function to toggle debug mode
+    function toggleDebugMode() {
+        config.debugMode = !config.debugMode;
+        saveConfig();
+        
+        // Update UI to reflect debug mode
+        const debugToggleButton = document.querySelector('button[title="Toggle debug mode"]');
+        if (debugToggleButton) {
+            debugToggleButton.textContent = config.debugMode ? '🐞 On' : '🐞 Off';
+        }
+        
+        // Add or remove debug button based on debug mode
+        const menu = document.querySelector('.saved-messages-menu');
+        const existingDebugButton = menu.querySelector('button[title="Find input field selectors"]');
+        
+        if (config.debugMode && !existingDebugButton) {
+            const debugButton = document.createElement('button');
+            debugButton.textContent = 'Debug';
+            debugButton.title = 'Find input field selectors';
+            debugButton.style.marginLeft = 'auto';
+            debugButton.onclick = debugInputFields;
+            menu.appendChild(debugButton);
+        } else if (!config.debugMode && existingDebugButton) {
+            existingDebugButton.remove();
+        }
+        
+        alert(`Debug mode ${config.debugMode ? 'enabled' : 'disabled'}. ${config.debugMode ? 'Additional debug options are now available.' : ''}`);
+    }
+
+    // Function to copy text to clipboard
+    function copyToClipboard(text) {
+        // Create temporary textarea element
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        
+        // Select and copy text
+        textarea.select();
+        let success = false;
+        try {
+            success = document.execCommand('copy');
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+        }
+        
+        // Clean up
+        document.body.removeChild(textarea);
+        
+        // Provide feedback
+        if (success) {
+            alert('Message copied to clipboard! You can now paste it into Messenger.');
+        } else {
+            // Try the newer clipboard API if available
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        alert('Message copied to clipboard! You can now paste it into Messenger.');
+                    })
+                    .catch(err => {
+                        alert('Failed to copy text: ' + err.message);
+                    });
+            } else {
+                alert('Failed to copy text. Please try selecting and copying the text manually.');
+            }
+        }
+    }
+
     // Initialize
     function init() {
         // Check for URL changes every second
@@ -616,6 +1087,39 @@
         
         // Initial URL check
         checkUrlChange();
+        
+        // Set up MutationObserver to detect dynamically loaded elements
+        setupMutationObserver();
+    }
+    
+    // Set up MutationObserver to detect when Messenger dynamically adds or removes elements
+    function setupMutationObserver() {
+        // Options for the observer (which mutations to observe)
+        const config = { 
+            childList: true, 
+            subtree: true,
+            attributes: false,
+            characterData: false
+        };
+        
+        // Create an observer instance linked to the callback function
+        const observer = new MutationObserver((mutationsList, observer) => {
+            // Check if the input field is now available
+            if (document.querySelector('[contenteditable="true"][role="textbox"]')) {
+                // Input field detected, no need to do anything special
+                return;
+            }
+            
+            // If URL has changed, check if we're in a new chat
+            const chatId = getCurrentChatId();
+            if (chatId && chatId !== currentChatUrl) {
+                currentChatUrl = chatId;
+                loadSavedMessages();
+            }
+        });
+        
+        // Start observing the target node for configured mutations
+        observer.observe(document.body, config);
     }
 
     // Start after page load

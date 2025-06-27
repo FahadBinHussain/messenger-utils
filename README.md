@@ -12,7 +12,10 @@ A userscript that allows you to save draft messages for specific Facebook Messen
 - Keyboard shortcuts for faster workflow
 - Timestamps to track when messages were saved
 - Messages sorted with newest first
+- Copy to clipboard functionality as a reliable fallback option
 - Import/export functionality for backup and transfer between browsers
+- Debug mode for troubleshooting
+- Advanced text insertion methods for Facebook's Lexical editor
 
 ## Installation
 
@@ -35,7 +38,8 @@ A userscript that allows you to save draft messages for specific Facebook Messen
 4. Your message will be saved specifically for this chat thread
 5. When you want to use a saved message:
    - Click the 📝 button to open the saved messages panel
-   - Click "Use" next to the message you want to use
+   - Click "Use" next to the message you want to use (automatically inserts into chat input)
+   - OR click "Copy" to copy the message to clipboard for manual pasting
    - The message will be inserted into the chat input field and the panel will close
 6. To delete a saved message, click "Delete" next to the message
 
@@ -53,12 +57,54 @@ You can back up and transfer your saved messages between different browsers or c
 
 Note: The import function will merge the imported messages with any existing messages. It will not overwrite your current messages.
 
+## Troubleshooting
+
+### If the "Use" Button Doesn't Work
+
+If clicking the "Use" button doesn't insert text into Messenger's input field:
+
+1. Try the "Copy" button instead, which copies the message to your clipboard for manual pasting
+2. Click the 🐞 (bug) toggle button in the saved messages panel to enable debug mode
+3. Once debug mode is enabled, a "Debug" button will appear
+4. Click the "Debug" button while in a Messenger chat
+5. This will identify all possible text input fields and show them in the browser console
+6. A test message will temporarily appear in what's believed to be the input field
+
+### Advanced Solutions
+
+The script now includes multiple methods to insert text into Messenger's input field:
+
+1. **Direct Content Setting**: Inserts text using the most appropriate method for Facebook's editor
+2. **React Integration Approach**: Attempts to work with Facebook's underlying React components
+3. **Clipboard Paste Simulation**: Uses clipboard APIs to simulate pasting text
+4. **Copy to Clipboard**: Reliable manual fallback that works regardless of Facebook's interface changes
+
+These methods are automatically attempted in sequence when you click "Use", or you can use the "Copy" button directly.
+
+### Fixed Issues
+
+- **Character duplication issue**: Fixed an issue where the first character would appear twice
+- **Input field detection**: Improved to work with Facebook's latest Lexical editor
+- **Message insertion reliability**: Multiple approaches are now used for greater compatibility
+
+### Common Issues and Fixes
+
+- **No input field detected**: Facebook may have changed their HTML structure. Use the "Copy" button instead of "Use".
+- **Text appears but doesn't trigger Messenger's UI**: Try typing a character manually after using a saved message.
+- **Debug mode doesn't find any input fields**: Make sure you're in an active Messenger chat when running the debug tool.
+- **Nothing works**: Try these workarounds:
+  1. Use the "Copy" button and paste manually with Ctrl+V
+  2. Use the debug tool to identify the input field, then type manually
+  3. Restart your browser or try a different browser
+  4. Check the browser console for specific error messages with debug mode enabled
+
 ## How It Works
 
 - The script uses the chat thread ID from the URL (e.g., `7990669924323622` in `https://www.messenger.com/e2ee/t/7990669924323622`) to store and retrieve messages specific to each conversation
 - Messages are stored locally in your browser using the userscript storage API
 - Messages are sorted by timestamp with newest first
 - Each message displays when it was saved (today, yesterday, or specific date)
+- The script uses multiple methods to detect and insert text into Facebook Messenger's input field
 - No data is sent to any external server
 - Messages persist between browser sessions
 
@@ -68,6 +114,7 @@ You can modify the userscript to customize:
 - The position and appearance of the UI
 - The keyboard shortcuts
 - Additional features as needed
+- Input field selectors (if Facebook changes their HTML structure)
 
 ## Privacy and Security
 
