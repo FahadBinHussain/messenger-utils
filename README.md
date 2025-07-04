@@ -1,5 +1,9 @@
 # Messenger Saved Messages Userscript
 
+<img src="https://wakapi-qt1b.onrender.com/api/badge/fahad/interval:any/project:messenger-utils" 
+     alt="Wakapi Time Tracking" 
+     title="Spent more than that amount of time spent on this project">
+
 A userscript that allows you to save draft messages for specific Facebook Messenger chat threads and send them later. This works like a personal note system that's contextual to each chat conversation.
 
 ## Features
