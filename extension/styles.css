@@ -1,0 +1,221 @@
+
+.saved-messages-container {
+    position: fixed;
+    right: 20px;
+    bottom: 100px;
+    width: 300px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 9999;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 400px;
+    border: 1px solid #e4e6eb;
+}
+
+.saved-messages-header {
+    padding: 12px;
+    background-color: #0084ff;
+    color: white;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+}
+
+.saved-messages-close {
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.saved-messages-body {
+    padding: 12px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.saved-messages-item {
+    margin-bottom: 10px;
+    padding: 8px;
+    background-color: #f0f2f5;
+    border-radius: 8px;
+    position: relative;
+}
+
+.saved-messages-timestamp {
+    font-size: 10px;
+    color: #65676B;
+    margin-top: 4px;
+}
+
+.saved-messages-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+.saved-messages-actions button {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.saved-message-use {
+    background-color: #0084ff;
+    color: white;
+}
+
+.saved-message-delete {
+    background-color: #f44336;
+    color: white;
+}
+
+.saved-messages-input {
+    padding: 12px;
+    display: flex;
+    gap: 8px;
+    border-top: 1px solid #e4e6eb;
+}
+
+.saved-messages-input textarea {
+    flex-grow: 1;
+    border: 1px solid #e4e6eb;
+    border-radius: 20px;
+    padding: 8px 12px;
+    resize: none;
+}
+
+.saved-messages-input .message-input-div {
+    flex-grow: 1;
+    border: 1px solid #e4e6eb;
+    border-radius: 20px;
+    padding: 8px 12px;
+    min-height: 36px;
+    max-height: 220px;
+    overflow-y: auto;
+    background-color: white;
+    user-select: text;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.message-input-div:empty:before {
+    content: attr(data-placeholder);
+    color: #999;
+    pointer-events: none;
+}
+
+.saved-messages-input .message-input-div img,
+.saved-messages-item img {
+    max-width: 100%;
+    max-height: 180px;
+    display: block;
+    border-radius: 6px;
+    margin: 4px 0;
+    object-fit: contain;
+}
+
+.saved-messages-input button {
+    background-color: #0084ff;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.saved-messages-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background-color: #0084ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 9999;
+}
+
+.saved-messages-category {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e4e6eb;
+}
+
+.saved-messages-category-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.hidden {
+    display: none;
+}
+
+.keyboard-shortcut {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 5px;
+    background-color: #f0f2f5;
+    border-radius: 4px;
+    font-size: 10px;
+    color: #65676B;
+}
+
+.saved-messages-menu {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: #f0f2f5;
+    border-bottom: 1px solid #e4e6eb;
+}
+
+.saved-messages-menu button {
+    border: none;
+    background-color: transparent;
+    color: #0084ff;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 8px;
+}
+
+.saved-messages-menu button:hover {
+    text-decoration: underline;
+}
+
+.file-input-hidden {
+    display: none;
+}
+
+.saved-messages-notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #333;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.5s, visibility 0.5s;
+    visibility: hidden;
+}
+
+.saved-messages-notification.visible {
+    opacity: 1;
+    visibility: visible;
+} 

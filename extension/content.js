@@ -1,204 +1,251 @@
-// ==UserScript==
-// @name         Messenger Saved Messages
-// @namespace    https://messenger.com/
-// @version      1.0
-// @description  Save draft messages for specific messenger.com chat threads to send later
-// @author       Fahad
-// @match        https://www.messenger.com/*
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_addStyle
-// @grant        GM_registerMenuCommand
-// @grant        GM_listValues
-// ==/UserScript==
-
 (function() {
     'use strict';
 
     // Configuration options
     const config = {
-        debugMode: GM_getValue('debugMode', false)  // Get debug mode from saved settings
+        debugMode: false
     };
+
+    // Load initial config from storage
+    chrome.storage.local.get('config', (result) => {
+        if (result.config) {
+            Object.assign(config, result.config);
+        }
+        // Re-initialize UI elements that depend on config if needed
+        const debugToggleButton = document.querySelector('button[title="Toggle debug mode"]');
+        if (debugToggleButton) {
+            debugToggleButton.textContent = config.debugMode ? '🐞 On' : '🐞 Off';
+        }
+    });
 
     // Save debug mode setting
     function saveConfig() {
-        GM_setValue('debugMode', config.debugMode);
+        chrome.storage.local.set({ config });
     }
 
     // Add custom styles
-    GM_addStyle(`
-        .saved-messages-container {
-            position: fixed;
-            right: 20px;
-            bottom: 100px;
-            width: 300px;
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            z-index: 9999;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            max-height: 400px;
-            border: 1px solid #e4e6eb;
-        }
+    // GM_addStyle(`
+    //     .saved-messages-container {
+    //         position: fixed;
+    //         right: 20px;
+    //         bottom: 100px;
+    //         width: 300px;
+    //         background-color: #ffffff;
+    //         border-radius: 8px;
+    //         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    //         z-index: 9999;
+    //         overflow: hidden;
+    //         display: flex;
+    //         flex-direction: column;
+    //         max-height: 400px;
+    //         border: 1px solid #e4e6eb;
+    //     }
         
-        .saved-messages-header {
-            padding: 12px;
-            background-color: #0084ff;
-            color: white;
-            font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: move;
-        }
+    //     .saved-messages-header {
+    //         padding: 12px;
+    //         background-color: #0084ff;
+    //         color: white;
+    //         font-weight: bold;
+    //         display: flex;
+    //         justify-content: space-between;
+    //         align-items: center;
+    //         cursor: move;
+    //     }
         
-        .saved-messages-close {
-            cursor: pointer;
-            font-size: 18px;
-        }
+    //     .saved-messages-close {
+    //         cursor: pointer;
+    //         font-size: 18px;
+    //     }
         
-        .saved-messages-body {
-            padding: 12px;
-            overflow-y: auto;
-            flex-grow: 1;
-        }
+    //     .saved-messages-body {
+    //         padding: 12px;
+    //         overflow-y: auto;
+    //         flex-grow: 1;
+    //     }
         
-        .saved-messages-item {
-            margin-bottom: 10px;
-            padding: 8px;
-            background-color: #f0f2f5;
-            border-radius: 8px;
-            position: relative;
-        }
+    //     .saved-messages-item {
+    //         margin-bottom: 10px;
+    //         padding: 8px;
+    //         background-color: #f0f2f5;
+    //         border-radius: 8px;
+    //         position: relative;
+    //     }
         
-        .saved-messages-timestamp {
-            font-size: 10px;
-            color: #65676B;
-            margin-top: 4px;
-        }
+    //     .saved-messages-timestamp {
+    //         font-size: 10px;
+    //         color: #65676B;
+    //         margin-top: 4px;
+    //     }
         
-        .saved-messages-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 5px;
-        }
+    //     .saved-messages-actions {
+    //         display: flex;
+    //         gap: 8px;
+    //         margin-top: 5px;
+    //     }
         
-        .saved-messages-actions button {
-            padding: 4px 8px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
+    //     .saved-messages-actions button {
+    //         padding: 4px 8px;
+    //         border: none;
+    //         border-radius: 4px;
+    //         cursor: pointer;
+    //         font-size: 12px;
+    //     }
         
-        .saved-message-use {
-            background-color: #0084ff;
-            color: white;
-        }
+    //     .saved-message-use {
+    //         background-color: #0084ff;
+    //         color: white;
+    //     }
         
-        .saved-message-delete {
-            background-color: #f44336;
-            color: white;
-        }
+    //     .saved-message-delete {
+    //         background-color: #f44336;
+    //         color: white;
+    //     }
         
-        .saved-messages-input {
-            padding: 12px;
-            display: flex;
-            gap: 8px;
-            border-top: 1px solid #e4e6eb;
-        }
+    //     .saved-messages-input {
+    //         padding: 12px;
+    //         display: flex;
+    //         gap: 8px;
+    //         border-top: 1px solid #e4e6eb;
+    //     }
         
-        .saved-messages-input textarea {
-            flex-grow: 1;
-            border: 1px solid #e4e6eb;
-            border-radius: 20px;
-            padding: 8px 12px;
-            resize: none;
-        }
+    //     .saved-messages-input textarea {
+    //         flex-grow: 1;
+    //         border: 1px solid #e4e6eb;
+    //         border-radius: 20px;
+    //         padding: 8px 12px;
+    //         resize: none;
+    //     }
+
+    //     .saved-messages-input .message-input-div {
+    //         flex-grow: 1;
+    //         border: 1px solid #e4e6eb;
+    //         border-radius: 20px;
+    //         padding: 8px 12px;
+    //         min-height: 36px;
+    //         max-height: 220px;
+    //         overflow-y: auto;
+    //         background-color: white;
+    //         user-select: text;
+    //         white-space: pre-wrap;
+    //         word-break: break-word;
+    //     }
+    //     .message-input-div:empty:before {
+    //         content: attr(data-placeholder);
+    //         color: #999;
+    //         pointer-events: none;
+    //     }
+
+    //     .saved-messages-input .message-input-div img,
+    //     .saved-messages-item img {
+    //         max-width: 100%;
+    //         max-height: 180px;
+    //         display: block;
+    //         border-radius: 6px;
+    //         margin: 4px 0;
+    //         object-fit: contain;
+    //     }
         
-        .saved-messages-input button {
-            background-color: #0084ff;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 36px;
-            height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
+    //     .saved-messages-input button {
+    //         background-color: #0084ff;
+    //         color: white;
+    //         border: none;
+    //         border-radius: 50%;
+    //         width: 36px;
+    //         height: 36px;
+    //         display: flex;
+    //         align-items: center;
+    //         justify-content: center;
+    //         cursor: pointer;
+    //     }
         
-        .saved-messages-toggle {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 50px;
-            height: 50px;
-            background-color: #0084ff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            z-index: 9999;
-        }
+    //     .saved-messages-toggle {
+    //         position: fixed;
+    //         bottom: 20px;
+    //         right: 20px;
+    //         width: 50px;
+    //         height: 50px;
+    //         background-color: #0084ff;
+    //         border-radius: 50%;
+    //         display: flex;
+    //         align-items: center;
+    //         justify-content: center;
+    //         color: white;
+    //         font-size: 24px;
+    //         cursor: pointer;
+    //         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    //         z-index: 9999;
+    //     }
         
-        .saved-messages-category {
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #e4e6eb;
-        }
+    //     .saved-messages-category {
+    //         margin-bottom: 12px;
+    //         padding-bottom: 8px;
+    //         border-bottom: 1px solid #e4e6eb;
+    //     }
         
-        .saved-messages-category-title {
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
+    //     .saved-messages-category-title {
+    //         font-weight: bold;
+    //         margin-bottom: 8px;
+    //     }
         
-        .hidden {
-            display: none;
-        }
+    //     .hidden {
+    //         display: none;
+    //     }
         
-        .keyboard-shortcut {
-            display: inline-block;
-            margin-left: 8px;
-            padding: 2px 5px;
-            background-color: #f0f2f5;
-            border-radius: 4px;
-            font-size: 10px;
-            color: #65676B;
-        }
+    //     .keyboard-shortcut {
+    //         display: inline-block;
+    //         margin-left: 8px;
+    //         padding: 2px 5px;
+    //         background-color: #f0f2f5;
+    //         border-radius: 4px;
+    //         font-size: 10px;
+    //         color: #65676B;
+    //     }
         
-        .saved-messages-menu {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 12px;
-            background-color: #f0f2f5;
-            border-bottom: 1px solid #e4e6eb;
-        }
+    //     .saved-messages-menu {
+    //         display: flex;
+    //         justify-content: space-between;
+    //         padding: 8px 12px;
+    //         background-color: #f0f2f5;
+    //         border-bottom: 1px solid #e4e6eb;
+    //     }
         
-        .saved-messages-menu button {
-            border: none;
-            background-color: transparent;
-            color: #0084ff;
-            cursor: pointer;
-            font-size: 12px;
-            padding: 4px 8px;
-        }
+    //     .saved-messages-menu button {
+    //         border: none;
+    //         background-color: transparent;
+    //         color: #0084ff;
+    //         cursor: pointer;
+    //         font-size: 12px;
+    //         padding: 4px 8px;
+    //     }
         
-        .saved-messages-menu button:hover {
-            text-decoration: underline;
-        }
+    //     .saved-messages-menu button:hover {
+    //         text-decoration: underline;
+    //     }
         
-        .file-input-hidden {
-            display: none;
-        }
-    `);
+    //     .file-input-hidden {
+    //         display: none;
+    //     }
+
+    //     .saved-messages-notification {
+    //         position: fixed;
+    //         bottom: 20px;
+    //         left: 50%;
+    //         transform: translateX(-50%);
+    //         background-color: #333;
+    //         color: white;
+    //         padding: 10px 20px;
+    //         border-radius: 5px;
+    //         z-index: 10000;
+    //         opacity: 0;
+    //         transition: opacity 0.5s, visibility 0.5s;
+    //         visibility: hidden;
+    //     }
+
+    //     .saved-messages-notification.visible {
+    //         opacity: 1;
+    //         visibility: visible;
+    //     }
+    // `);
 
     let isContainerVisible = false;
     let currentChatUrl = '';
@@ -298,9 +345,11 @@
         inputArea.className = 'saved-messages-input';
         inputArea.dataset.savedMessageUiElement = 'true';
         
-        const textarea = document.createElement('textarea');
-        textarea.placeholder = 'Type a message to save... (Alt+S to save)';
-        textarea.rows = 2;
+        const textarea = document.createElement('div');
+        textarea.className = 'message-input-div';
+        textarea.contentEditable = 'true';
+        textarea.setAttribute('role', 'textbox');
+        textarea.dataset.placeholder = 'Type message or paste image... (Alt+S to save)';
         textarea.dataset.savedMessageUiElement = 'true';
         
         const saveButton = document.createElement('button');
@@ -356,11 +405,11 @@
     });
     
     // Register in Tampermonkey menu
-    GM_registerMenuCommand("Toggle Saved Messages", toggleContainer);
-    GM_registerMenuCommand("Export All Saved Messages", exportSavedMessages);
-    GM_registerMenuCommand("Toggle Debug Mode", toggleDebugMode);
+    // GM_registerMenuCommand("Toggle Saved Messages", toggleContainer); // TODO: Replace with chrome.storage
+    // GM_registerMenuCommand("Export All Saved Messages", exportSavedMessages); // TODO: Replace with chrome.storage
+    // GM_registerMenuCommand("Toggle Debug Mode", toggleDebugMode); // TODO: Replace with chrome.storage
     if (config.debugMode) {
-        GM_registerMenuCommand("Debug Input Fields", debugInputFields);
+        // GM_registerMenuCommand("Debug Input Fields", debugInputFields); // TODO: Replace with chrome.storage
     }
 
     // Load saved messages when URL changes
@@ -429,27 +478,76 @@
         ui.container.style.cursor = 'default';
     }
 
-    // Function to save a message
-    function saveMessage() {
-        const messageText = ui.textarea.value.trim();
-        if (!messageText) return;
+    function showNotification(message) {
+        let notification = document.querySelector('.saved-messages-notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.className = 'saved-messages-notification';
+            document.body.appendChild(notification);
+        }
         
+        notification.textContent = message;
+        notification.classList.add('visible');
+        
+        setTimeout(() => {
+            notification.classList.remove('visible');
+        }, 3000);
+    }
+
+    // Function to save a message
+    async function saveMessage() {
+        const messageInput = ui.textarea;
+        const messageHtml = messageInput.innerHTML.trim();
+        if (!messageHtml) return;
+        
+        // Create a temporary div to process the HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = messageHtml;
+
+        // Find all images and convert blob sources to data URLs
+        const images = Array.from(tempDiv.querySelectorAll('img'));
+        const conversionPromises = images.map(async (img) => {
+            if (img.src.startsWith('blob:')) {
+                try {
+                    const response = await fetch(img.src);
+                    const blob = await response.blob();
+                    const dataUrl = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                    img.src = dataUrl;
+                } catch (error) {
+                    console.error('Error converting blob to data URL:', error);
+                    // Optionally remove the image if conversion fails
+                    img.remove();
+                }
+            }
+        });
+
+        await Promise.all(conversionPromises);
+
+        const finalHtml = tempDiv.innerHTML;
+
         const chatId = getCurrentChatId();
         if (!chatId) {
             alert('Cannot save message: No chat detected');
             return;
         }
-        
-        const savedMessages = GM_getValue(chatId, []);
-        savedMessages.push({
-            text: messageText,
-            timestamp: Date.now(),
-            category: 'default' // Default category for organization
+
+        chrome.storage.local.get(chatId, (result) => {
+            const savedMessages = result[chatId] || [];
+            savedMessages.push({
+                html: finalHtml,
+                timestamp: Date.now(),
+                category: 'default'
+            });
+            chrome.storage.local.set({ [chatId]: savedMessages }, () => {
+                messageInput.innerHTML = '';
+                loadSavedMessages();
+            });
         });
-        
-        GM_setValue(chatId, savedMessages);
-        ui.textarea.value = '';
-        loadSavedMessages();
     }
 
     // Function to load saved messages for current chat
@@ -459,112 +557,160 @@
             ui.body.innerHTML = '<p>Open a chat to see saved messages</p>';
             return;
         }
-        
-        const savedMessages = GM_getValue(chatId, []);
-        
-        if (savedMessages.length === 0) {
-            ui.body.innerHTML = '<p>No saved messages for this chat</p>';
-            return;
-        }
-        
-        ui.body.innerHTML = '';
-        
-        // Group messages by category (for future enhancement)
-        const messagesByCategory = {};
-        savedMessages.forEach((message) => {
-            const category = message.category || 'default';
-            if (!messagesByCategory[category]) {
-                messagesByCategory[category] = [];
+
+        chrome.storage.local.get(chatId, (result) => {
+            const savedMessages = result[chatId] || [];
+
+            if (savedMessages.length === 0) {
+                ui.body.innerHTML = '<p>No saved messages for this chat</p>';
+                return;
             }
-            messagesByCategory[category].push(message);
-        });
-        
-        // Render each category
-        Object.keys(messagesByCategory).forEach((category) => {
-            const categoryMessages = messagesByCategory[category];
+
+            ui.body.innerHTML = '';
             
-            // Sort messages by timestamp (newest first)
-            categoryMessages.sort((a, b) => b.timestamp - a.timestamp);
+            // Group messages by category (for future enhancement)
+            const messagesByCategory = {};
+            savedMessages.forEach((message) => {
+                const category = message.category || 'default';
+                if (!messagesByCategory[category]) {
+                    messagesByCategory[category] = [];
+                }
+                messagesByCategory[category].push(message);
+            });
             
-            categoryMessages.forEach((message, index) => {
-                const messageElement = document.createElement('div');
-                messageElement.className = 'saved-messages-item';
-                messageElement.dataset.savedMessageUiElement = 'true';
+            // Render each category
+            Object.keys(messagesByCategory).forEach((category) => {
+                const categoryMessages = messagesByCategory[category];
                 
-                const messageText = document.createElement('div');
-                messageText.textContent = message.text;
-                messageText.dataset.savedMessageUiElement = 'true';
+                // Sort messages by timestamp (newest first)
+                categoryMessages.sort((a, b) => b.timestamp - a.timestamp);
                 
-                const timestampDiv = document.createElement('div');
-                timestampDiv.className = 'saved-messages-timestamp';
-                timestampDiv.textContent = formatTimestamp(message.timestamp);
-                timestampDiv.dataset.savedMessageUiElement = 'true';
-                
-                const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'saved-messages-actions';
-                actionsDiv.dataset.savedMessageUiElement = 'true';
-                
-                const useButton = document.createElement('button');
-                useButton.className = 'saved-message-use';
-                useButton.textContent = 'Use';
-                useButton.dataset.savedMessageUiElement = 'true';
-                useButton.onclick = () => useMessage(message.text);
-                
-                const copyButton = document.createElement('button');
-                copyButton.className = 'saved-message-copy';
-                copyButton.textContent = 'Copy';
-                copyButton.style.backgroundColor = '#4CAF50';
-                copyButton.style.color = 'white';
-                copyButton.title = 'Copy to clipboard';
-                copyButton.dataset.savedMessageUiElement = 'true';
-                copyButton.onclick = () => copyToClipboard(message.text);
-                
-                const deleteButton = document.createElement('button');
-                deleteButton.className = 'saved-message-delete';
-                deleteButton.textContent = 'Delete';
-                deleteButton.dataset.savedMessageUiElement = 'true';
-                deleteButton.onclick = () => deleteMessage(savedMessages.indexOf(message));
-                
-                actionsDiv.appendChild(useButton);
-                actionsDiv.appendChild(copyButton);
-                actionsDiv.appendChild(deleteButton);
-                
-                messageElement.appendChild(messageText);
-                messageElement.appendChild(timestampDiv);
-                messageElement.appendChild(actionsDiv);
-                
-                ui.body.appendChild(messageElement);
+                categoryMessages.forEach((message, index) => {
+                    const messageElement = document.createElement('div');
+                    messageElement.className = 'saved-messages-item';
+                    messageElement.dataset.savedMessageUiElement = 'true';
+                    
+                    const messageText = document.createElement('div');
+                    messageText.innerHTML = message.html;
+                    messageText.dataset.savedMessageUiElement = 'true';
+                    
+                    const timestampDiv = document.createElement('div');
+                    timestampDiv.className = 'saved-messages-timestamp';
+                    timestampDiv.textContent = formatTimestamp(message.timestamp);
+                    timestampDiv.dataset.savedMessageUiElement = 'true';
+                    
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'saved-messages-actions';
+                    actionsDiv.dataset.savedMessageUiElement = 'true';
+                    
+                    const useButton = document.createElement('button');
+                    useButton.className = 'saved-message-use';
+                    useButton.textContent = 'Use';
+                    useButton.dataset.savedMessageUiElement = 'true';
+                    useButton.onclick = () => useMessage(message.html);
+                    
+                    const copyButton = document.createElement('button');
+                    copyButton.className = 'saved-message-copy';
+                    copyButton.textContent = 'Copy';
+                    copyButton.style.backgroundColor = '#4CAF50';
+                    copyButton.style.color = 'white';
+                    copyButton.title = 'Copy to clipboard';
+                    copyButton.dataset.savedMessageUiElement = 'true';
+                    copyButton.onclick = () => copyToClipboard(message.html, 'Message copied to clipboard! You can now paste it.');
+                    
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'saved-message-delete';
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.dataset.savedMessageUiElement = 'true';
+                    deleteButton.onclick = () => deleteMessage(savedMessages.indexOf(message));
+                    
+                    actionsDiv.appendChild(useButton);
+                    actionsDiv.appendChild(copyButton);
+                    actionsDiv.appendChild(deleteButton);
+                    
+                    messageElement.appendChild(messageText);
+                    messageElement.appendChild(timestampDiv);
+                    messageElement.appendChild(actionsDiv);
+                    
+                    ui.body.appendChild(messageElement);
+                });
             });
         });
     }
 
-    // Function to use a saved message with retry mechanism
-    function useMessage(text) {
-        // Save a reference to our own input field to avoid modifying it
-        const ourTextarea = ui.textarea;
-        
-        // Blur our own textarea to prevent accidentally updating it
-        if (document.activeElement === ourTextarea) {
-            ourTextarea.blur();
+    async function copyImageNatively(imageUrl, callback) {
+        try {
+            // The ClipboardItem API is the modern and correct way to do this.
+            // It should be available in an extension context with clipboardWrite permission.
+            if (typeof ClipboardItem === 'undefined') {
+                throw new Error('ClipboardItem API is not available in this context. Cannot copy image.');
+            }
+
+            // We must fetch the data URL to convert it into a blob.
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+
+            // Create a clipboard item with the blob.
+            await navigator.clipboard.write([
+                new ClipboardItem({
+                    [blob.type]: blob
+                })
+            ]);
+
+            showNotification('Image copied to clipboard! Press Ctrl+V to paste.');
+            callback(true);
+
+        } catch (error) {
+            console.error('Failed to copy image using ClipboardItem API:', error);
+            // If this fails, there's no better fallback for native image copy.
+            callback(false);
         }
+    }
+
+    // Function to use a saved message with retry mechanism
+    function useMessage(html) {
+        // Create a temporary div to manipulate the content
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
         
-        // Hide the saved messages panel immediately to prevent events from affecting it
+        // Find all images
+        const images = Array.from(tempDiv.querySelectorAll('img'));
+        
+        // Get the HTML of the first image for the clipboard
+        const firstImageSrc = images.length > 0 ? images[0].src : null;
+        
+        // Remove images from the div to get the text-only HTML
+        images.forEach(img => img.remove());
+        const htmlToInsert = tempDiv.innerHTML.trim();
+
+        // Blur our own textarea and hide the panel
+        if (document.activeElement === ui.textarea) {
+            ui.textarea.blur();
+        }
         toggleContainer();
         
-        // Small delay to ensure UI update happens before text insertion
+        // Small delay to ensure UI update happens before actions
         setTimeout(() => {
-            // Try to insert the message, and if it fails, retry after a short delay
-            const attemptInsert = (remainingTries = 3) => {
-                const result = insertMessageIntoInputField(text);
-                
-                if (!result && remainingTries > 0) {
-                    // Wait a moment and try again, Facebook might be updating the DOM
-                    setTimeout(() => attemptInsert(remainingTries - 1), 300);
-                }
-            };
-            
-            // Start the attempt process
-            attemptInsert();
+            // If there's text, insert it into the message field
+            if (htmlToInsert) {
+                const attemptInsert = (remainingTries = 3) => {
+                    const result = insertMessageIntoInputField(htmlToInsert);
+                    if (!result && remainingTries > 0) {
+                        setTimeout(() => attemptInsert(remainingTries - 1), 300);
+                    }
+                };
+                attemptInsert();
+            }
+
+            // If there was an image, copy it to the clipboard
+            if (firstImageSrc) {
+                copyImageNatively(firstImageSrc, (success) => {
+                    if (!success) {
+                        const imageHtml = `<img src="${firstImageSrc}">`;
+                        copyToClipboard(imageHtml, 'Failed to copy image directly. Copied as HTML instead.');
+                    }
+                });
+            }
         }, 50);
     }
     
@@ -596,7 +742,7 @@
     }
     
     // Helper function to actually insert the message
-    function insertMessageIntoInputField(text) {
+    function insertMessageIntoInputField(html) {
         // Find the message input field - try multiple possible selectors
         let inputField = null;
         let matchedSelector = '';
@@ -669,26 +815,29 @@
         
         if (inputField && !isOurUIElement(inputField)) {
             try {
-                // Try multiple techniques to insert text
-                
-                // Method 1: Direct insertion - reliable but doesn't always update Facebook's React state
-                insertTextDirectly(inputField, text);
-                
-                // Method 2: Try to trigger a React insert using a hack
+                // First, focus the element. This is important for many paste handlers.
+                inputField.focus();
+
+                // Method 1: The most robust method is simulating a paste event.
+                // This should trigger all of Facebook's listeners.
+                simulatePaste(inputField, html);
+
+                // Give it a moment to process the event, then check and fallback
                 setTimeout(() => {
-                    if (!checkTextInserted(inputField, text)) {
-                        tryReactInsert(inputField, text);
-                    }
-                    
-                    // Method 3: Use clipboard paste API if available and previous methods failed
-                    setTimeout(() => {
-                        if (!checkTextInserted(inputField, text)) {
-                            tryClipboardPaste(inputField, text);
+                    if (!checkTextInserted(inputField, html)) {
+                        if (config.debugMode) {
+                            console.log('Paste simulation failed, trying direct insertion as fallback.');
                         }
-                        
-                        // Focus the input field and position cursor at end
-                        setTimeout(() => {
-                            inputField.focus();
+                        // Method 2: Fallback to direct insertion.
+                        insertTextDirectly(inputField, html);
+                    }
+
+                    // Final check and focus adjustment
+                    setTimeout(() => {
+                        if (checkTextInserted(inputField, html)) {
+                            if (config.debugMode) {
+                                console.log('Message insertion successful using selector:', matchedSelector);
+                            }
                             positionCursorAtEnd(inputField);
                             
                             // If there's a "send" button visible, we could optionally focus that too
@@ -696,14 +845,16 @@
                             if (sendButton) {
                                 setTimeout(() => sendButton.focus(), 50);
                             }
-                        }, 50);
-                    }, 50);
+                        } else {
+                            if (config.debugMode) {
+                                console.log('All insertion methods failed.');
+                            }
+                        }
+                    }, 100);
+
                 }, 50);
                 
-                if (config.debugMode) {
-                    console.log('Message insertion attempted using selector:', matchedSelector);
-                }
-                return true;
+                return true; // We attempted insertion.
             } catch (error) {
                 console.error('Error inserting message:', error);
                 if (config.debugMode) {
@@ -738,7 +889,7 @@
     }
     
     // Insert text directly into the element
-    function insertTextDirectly(element, text) {
+    function insertTextDirectly(element, html) {
         // Additional safety check to ensure we're not affecting our own UI
         if (isOurUIElement(element)) {
             console.error('Attempted to modify our own UI element');
@@ -749,23 +900,8 @@
             // First clear the field
             element.innerHTML = '';
             
-            // Try insertText command (most reliable for contenteditable elements)
-            const success = document.execCommand('insertText', false, text);
-            
-            // If that failed, try setting the content directly
-            if (!success || element.textContent !== text) {
-                // Try direct content setting
-                element.textContent = text;
-                
-                // Lexical editor often uses paragraph tags
-                if (element.getAttribute('data-lexical-editor') === 'true') {
-                    // Create paragraph structure that Lexical expects
-                    element.innerHTML = `<p class="xat24cr xdj266r"><span data-lexical-text="true">${text}</span></p>`;
-                } else {
-                    // Handle linebreaks for non-Lexical editors
-                    element.innerHTML = text.replace(/\n/g, '<br>');
-                }
-            }
+            // Setting innerHTML is the most direct way for HTML content
+            element.innerHTML = html;
             
             // Dispatch events to notify React/Facebook
             ['input', 'change'].forEach(eventType => {
@@ -781,116 +917,86 @@
             
             return true;
         } catch (e) {
-            console.log('Direct text insertion failed:', e);
+            console.log('Direct HTML insertion failed:', e);
             return false;
         }
     }
     
-    // Try to paste text via clipboard API
-    function tryClipboardPaste(element, text) {
-        // Additional safety check to ensure we're not affecting our own UI
+    function simulatePaste(element, html) {
         if (isOurUIElement(element)) {
-            console.error('Attempted to modify our own UI element');
+            console.error('Attempted to paste into our own UI element');
             return false;
         }
-        
         try {
-            // Focus the element
-            element.focus();
+            const pasteEvent = new ClipboardEvent('paste', {
+                bubbles: true,
+                cancelable: true,
+                clipboardData: new DataTransfer()
+            });
             
-            // Try to use modern Clipboard API
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                // Save current clipboard content
-                navigator.clipboard.writeText(text)
-                    .then(() => {
-                        // Execute paste command
-                        document.execCommand('paste');
-                    })
-                    .catch(e => {
-                        console.log('Clipboard API paste failed:', e);
-                    });
-            } else {
-                // Fallback to older paste event
-                const pasteEvent = new ClipboardEvent('paste', {
-                    bubbles: true,
-                    cancelable: true,
-                    clipboardData: new DataTransfer()
-                });
-                
-                // Try to set clipboard data
-                try {
-                    Object.defineProperty(pasteEvent.clipboardData, 'getData', {
-                        value: () => text
-                    });
-                    element.dispatchEvent(pasteEvent);
-                } catch (e) {
-                    console.log('Clipboard event paste failed:', e);
-                }
-            }
+            // Add both HTML and plain text versions for compatibility
+            pasteEvent.clipboardData.setData('text/html', html);
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            pasteEvent.clipboardData.setData('text/plain', tempDiv.textContent || '');
             
+            element.dispatchEvent(pasteEvent);
             return true;
         } catch (e) {
-            console.log('Clipboard paste failed:', e);
+            if (config.debugMode) {
+                console.error('Simulating paste event failed:', e);
+            }
             return false;
         }
     }
     
     // Helper function to check if text was successfully inserted
-    function checkTextInserted(element, expectedText) {
-        const normalizedExpected = expectedText.trim();
-        const normalizedActual = element.textContent.trim();
-        return normalizedActual.includes(normalizedExpected);
+    function checkTextInserted(element, expectedHtml) {
+        if (!element || !expectedHtml) return false;
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = expectedHtml;
+        const expectedText = tempDiv.textContent.trim();
+        const expectedImgCount = tempDiv.querySelectorAll('img').length;
+
+        const actualText = element.textContent.trim();
+        const actualImgCount = element.querySelectorAll('img').length;
+        
+        // If the target is empty, insertion definitely failed.
+        if (!element.innerHTML.trim()) {
+            return false;
+        }
+
+        // If we expect images, we must have at least that many images.
+        if (expectedImgCount > 0 && actualImgCount < expectedImgCount) {
+            return false;
+        }
+
+        // If we expect text, it must be present.
+        if (expectedText && !actualText.includes(expectedText)) {
+            return false;
+        }
+
+        // If we expect only an image and text is empty, but we have an image, it's a success.
+        if (expectedImgCount > 0 && !expectedText) {
+            return actualImgCount > 0;
+        }
+
+        return true;
     }
     
-    // Special method to try to insert text via React properties
-    function tryReactInsert(element, text) {
-        // Additional safety check to ensure we're not affecting our own UI
-        if (isOurUIElement(element)) {
-            console.error('Attempted to modify our own UI element');
-            return false;
-        }
-        
-        try {
-            // This is a hack to access Facebook's React instance
-            // Look for React internal properties
-            for (const key in element) {
-                if (key.startsWith('__reactProps$') || key.startsWith('__reactFiber$')) {
-                    // Found React internal properties
-                    // Try to trigger a change via a custom paste event
-                    const pasteEvent = new ClipboardEvent('paste', {
-                        bubbles: true,
-                        clipboardData: new DataTransfer()
-                    });
-                    
-                    // Set clipboard data
-                    Object.defineProperty(pasteEvent.clipboardData, 'getData', {
-                        value: () => text
-                    });
-                    
-                    element.dispatchEvent(pasteEvent);
-                    return true;
-                }
-            }
-            
-            // If we can't find React internals, try simulating a paste command
-            document.execCommand('insertText', false, text);
-            
-            return false;
-        } catch (e) {
-            console.log('React insert attempt failed:', e);
-            return false;
-        }
-    }
-
     // Function to delete a saved message
     function deleteMessage(index) {
         const chatId = getCurrentChatId();
         if (!chatId) return;
-        
-        const savedMessages = GM_getValue(chatId, []);
-        savedMessages.splice(index, 1);
-        GM_setValue(chatId, savedMessages);
-        loadSavedMessages();
+
+        chrome.storage.local.get(chatId, (result) => {
+            const savedMessages = result[chatId] || [];
+            savedMessages.splice(index, 1);
+            chrome.storage.local.set({ [chatId]: savedMessages }, () => {
+                loadSavedMessages();
+            });
+        });
     }
     
     // Function to trigger the import dialog
@@ -908,80 +1014,48 @@
             try {
                 const data = JSON.parse(e.target.result);
                 
-                // Validate the data structure
-                if (typeof data !== 'object') {
-                    throw new Error('Invalid data format');
-                }
-                
-                // Import each chat's messages
+                if (typeof data !== 'object') throw new Error('Invalid data format');
+
+                // The data to be set in storage
+                let importData = {};
                 let importCount = 0;
                 for (const chatId in data) {
                     if (Array.isArray(data[chatId])) {
-                        GM_setValue(chatId, data[chatId]);
+                        importData[chatId] = data[chatId];
                         importCount += data[chatId].length;
                     }
                 }
-                
-                alert(`Successfully imported ${importCount} saved messages for ${Object.keys(data).length} chats.`);
-                
-                // Refresh current view if needed
-                const currentChatId = getCurrentChatId();
-                if (currentChatId && data[currentChatId]) {
-                    loadSavedMessages();
-                }
+
+                chrome.storage.local.set(importData, () => {
+                    alert(`Successfully imported ${importCount} saved messages for ${Object.keys(importData).length} chats.`);
+                    // Refresh current view if needed
+                    const currentChatId = getCurrentChatId();
+                    if (currentChatId && importData[currentChatId]) {
+                        loadSavedMessages();
+                    }
+                });
+
             } catch (error) {
                 alert('Error importing messages: ' + error.message);
             }
         };
         reader.readAsText(file);
-        
-        // Reset the file input
         event.target.value = '';
     }
 
     // Function to export all saved messages
     function exportSavedMessages() {
-        const allData = {};
-        
-        // Use GM_listValues if available, otherwise provide warning
-        if (typeof GM_listValues === 'function') {
-            const savedKeys = GM_listValues();
-            
-            if (savedKeys.length === 0) {
+        // chrome.storage.local.get(null) gets all items
+        chrome.storage.local.get(null, (allData) => {
+            if (Object.keys(allData).length === 0) {
                 alert('No saved messages found');
                 return;
             }
+            // We might have other things in storage, like config, so filter them out.
+            delete allData.config; 
             
-            // Collect all data
-            savedKeys.forEach(key => {
-                const messages = GM_getValue(key, []);
-                if (messages.length > 0) {
-                    allData[key] = messages;
-                }
-            });
-            
-            // Create download
             downloadJSON(allData, 'messenger_saved_messages.json');
-        } else {
-            // Current chat only if GM_listValues not available
-            const chatId = getCurrentChatId();
-            if (!chatId) {
-                alert('Cannot export: No chat detected and GM_listValues not available');
-                return;
-            }
-            
-            const messages = GM_getValue(chatId, []);
-            if (messages.length === 0) {
-                alert('No saved messages found for current chat');
-                return;
-            }
-            
-            allData[chatId] = messages;
-            
-            // Create download with warning
-            alert('Note: Your userscript manager does not support GM_listValues. Only the current chat messages will be exported.');
-            downloadJSON(allData, 'messenger_saved_messages_partial.json');
-        }
+        });
     }
     
     // Helper function to trigger download
@@ -1123,44 +1197,23 @@
     }
 
     // Function to copy text to clipboard
-    function copyToClipboard(text) {
-        // Create temporary textarea element
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.setAttribute('readonly', '');
-        textarea.style.position = 'absolute';
-        textarea.style.left = '-9999px';
-        document.body.appendChild(textarea);
-        
-        // Select and copy text
-        textarea.select();
-        let success = false;
-        try {
-            success = document.execCommand('copy');
-        } catch (err) {
-            console.error('Failed to copy text: ', err);
+    function copyToClipboard(html, message) {
+        // Set a default message if one isn't provided.
+        const notificationMessage = message || 'Message copied to clipboard! You can now paste it.';
+
+        function listener(e) {
+            e.clipboardData.setData('text/html', html);
+            // Also set a plain text fallback
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            e.clipboardData.setData('text/plain', tempDiv.textContent || '');
+            e.preventDefault();
         }
+        document.addEventListener('copy', listener);
+        document.execCommand('copy');
+        document.removeEventListener('copy', listener);
         
-        // Clean up
-        document.body.removeChild(textarea);
-        
-        // Provide feedback
-        if (success) {
-            alert('Message copied to clipboard! You can now paste it into Messenger.');
-        } else {
-            // Try the newer clipboard API if available
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text)
-                    .then(() => {
-                        alert('Message copied to clipboard! You can now paste it into Messenger.');
-                    })
-                    .catch(err => {
-                        alert('Failed to copy text: ' + err.message);
-                    });
-            } else {
-                alert('Failed to copy text. Please try selecting and copying the text manually.');
-            }
-        }
+        showNotification(notificationMessage);
     }
 
     // Initialize

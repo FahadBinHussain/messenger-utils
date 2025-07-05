@@ -4,7 +4,7 @@
      alt="Wakapi Time Tracking" 
      title="Spent more than that amount of time spent on this project">
 
-A userscript that allows you to save draft messages for specific Facebook Messenger chat threads and send them later. This works like a personal note system that's contextual to each chat conversation.
+A userscript that allows you to save draft messages, including images, for specific Facebook Messenger chat threads and send them later. This works like a personal note system that's contextual to each chat conversation.
 
 ## Features
 
@@ -38,14 +38,15 @@ A userscript that allows you to save draft messages for specific Facebook Messen
 
 1. Navigate to any Messenger conversation on messenger.com
 2. Click the 📝 (notepad) button that appears in the bottom right corner of the page (or press `Alt+M`)
-3. Type your message in the text box and click the "+" button (or press `Alt+S`) to save it
-4. Your message will be saved specifically for this chat thread
-5. When you want to use a saved message:
+3. Type your message and paste images directly into the text box
+4. Click the "+" button (or press `Alt+S`) to save your message (with images)
+5. Your message will be saved specifically for this chat thread
+6. When you want to use a saved message:
    - Click the 📝 button to open the saved messages panel
    - Click "Use" next to the message you want to use (automatically inserts into chat input)
    - OR click "Copy" to copy the message to clipboard for manual pasting
    - The message will be inserted into the chat input field and the panel will close
-6. To delete a saved message, click "Delete" next to the message
+7. To delete a saved message, click "Delete" next to the message
 
 ## Keyboard Shortcuts
 
@@ -90,6 +91,7 @@ These methods are automatically attempted in sequence when you click "Use", or y
 - **Character duplication issue**: Fixed an issue where the first character would appear twice
 - **Input field detection**: Improved to work with Facebook's latest Lexical editor
 - **Message insertion reliability**: Multiple approaches are now used for greater compatibility
+- **Image handling**: Added support for saving and using messages with images
 
 ### Common Issues and Fixes
 

@@ -1,0 +1,30 @@
+{
+    "manifest_version": 3,
+    "name": "Messenger Saved Messages",
+    "version": "1.0",
+    "description": "Save draft messages, including text and images, for specific messenger.com chat threads to send later.",
+    "permissions": [
+        "storage",
+        "clipboardWrite"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*.messenger.com/*",
+                "*://*.facebook.com/messages/t/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "css": [
+                "styles.css"
+            ]
+        }
+    ],
+    "action": {
+        "default_title": "Messenger Saved Messages",
+        "default_popup": "popup.html"
+    },
+    "icons": {
+    }
+} 
