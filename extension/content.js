@@ -689,9 +689,8 @@
         }
         toggleContainer();
         
-        // Small delay to ensure UI update happens before actions
         setTimeout(() => {
-            // If there's text, insert it into the message field
+            // If there's text, insert it.
             if (htmlToInsert) {
                 const attemptInsert = (remainingTries = 3) => {
                     const result = insertMessageIntoInputField(htmlToInsert);
@@ -702,10 +701,31 @@
                 attemptInsert();
             }
 
-            // If there was an image, copy it to the clipboard
+            // If there was an image, copy it and then trigger paste.
             if (firstImageSrc) {
                 copyImageNatively(firstImageSrc, (success) => {
-                    if (!success) {
+                    if (success) {
+                        // Image copied. Now, find the input field and ask background to paste.
+                        const inputField = findMessengerInputField();
+                        if (inputField) {
+                            inputField.focus();
+                            // Brief delay to ensure focus takes effect before paste command
+                            setTimeout(() => {
+                                chrome.runtime.sendMessage({ action: "paste" }, (response) => {
+                                    if (chrome.runtime.lastError) {
+                                        console.error("Paste message failed:", chrome.runtime.lastError.message);
+                                        showNotification('Image copied! Auto-paste failed. Please paste manually.');
+                                    } else if (!response || !response.success) {
+                                        console.error("Paste command failed in background:", response?.error);
+                                        showNotification('Image copied! Auto-paste failed. Please paste manually.');
+                                    }
+                                });
+                            }, 50);
+                        } else {
+                            showNotification('Image copied, but could not find where to paste it.');
+                        }
+                    } else {
+                        // Fallback for when even native copy fails
                         const imageHtml = `<img src="${firstImageSrc}">`;
                         copyToClipboard(imageHtml, 'Failed to copy image directly. Copied as HTML instead.');
                     }
@@ -714,6 +734,48 @@
         }, 50);
     }
     
+    function findMessengerInputField() {
+        // This is the list of selectors used to find the input box.
+        // It's duplicated from insertMessageIntoInputField for now.
+        const possibleSelectors = [
+            'div[aria-label="Message"][contenteditable="true"][data-lexical-editor="true"]',
+            '.xzsf02u.notranslate[contenteditable="true"][role="textbox"]',
+            '.notranslate[contenteditable="true"][data-lexical-editor="true"]',
+            '[aria-label="Message"][contenteditable="true"]',
+            '[contenteditable="true"][role="textbox"]',
+            '[contenteditable="true"][data-lexical-editor="true"]',
+            '.xzsf02u[role="textbox"]',
+            '[aria-label="Message"]',
+            '[placeholder="Aa"]',
+            '.notranslate[contenteditable="true"]',
+            'div[role="textbox"][spellcheck="true"]',
+            'form [contenteditable="true"]',
+            '[contenteditable="true"]'
+        ];
+
+        for (const selector of possibleSelectors) {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+                if (elements.length > 1) {
+                    let maxBottom = 0;
+                    let bestElement = null;
+                    for (const el of elements) {
+                        if (isOurUIElement(el)) continue;
+                        const rect = el.getBoundingClientRect();
+                        if (rect.bottom > maxBottom && rect.width > 50) {
+                            maxBottom = rect.bottom;
+                            bestElement = el;
+                        }
+                    }
+                    if (bestElement) return bestElement;
+                } else if (!isOurUIElement(elements[0])) {
+                    return elements[0];
+                }
+            }
+        }
+        return null;
+    }
+
     // Helper function to check if element belongs to our UI
     function isOurUIElement(element) {
         if (!element) return false;
