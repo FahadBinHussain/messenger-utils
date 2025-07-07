@@ -385,6 +385,14 @@
         document.addEventListener('mousemove', drag);
         document.addEventListener('mouseup', stopDragging);
         
+        // Make the toggle button draggable as well
+        toggleButton.addEventListener('mousedown', startDraggingToggle);
+        document.addEventListener('mousemove', dragToggle);
+        document.addEventListener('mouseup', stopDraggingToggle);
+
+        // Load saved positions
+        loadPositions();
+        
         return {
             container,
             body,
@@ -474,8 +482,73 @@
     }
 
     function stopDragging() {
-        isDragging = false;
-        ui.container.style.cursor = 'default';
+        if (isDragging) {
+            isDragging = false;
+            ui.container.style.cursor = 'default';
+            const containerRect = ui.container.getBoundingClientRect();
+            chrome.storage.local.set({ 
+                containerPosition: { 
+                    left: containerRect.left, 
+                    top: containerRect.top 
+                } 
+            });
+        }
+    }
+
+    // --- Toggle button dragging functions ---
+    let isDraggingToggle = false;
+    let toggleDragOffset = { x: 0, y: 0 };
+
+    function startDraggingToggle(e) {
+        // Prevent event from bubbling up to header drag
+        if (e.target === ui.toggleButton) {
+            isDraggingToggle = true;
+            const toggleRect = ui.toggleButton.getBoundingClientRect();
+            toggleDragOffset.x = e.clientX - toggleRect.left;
+            toggleDragOffset.y = e.clientY - toggleRect.top;
+            ui.toggleButton.style.cursor = 'grabbing';
+            e.stopPropagation();
+        }
+    }
+
+    function dragToggle(e) {
+        if (isDraggingToggle) {
+            ui.toggleButton.style.left = (e.clientX - toggleDragOffset.x) + 'px';
+            ui.toggleButton.style.top = (e.clientY - toggleDragOffset.y) + 'px';
+            ui.toggleButton.style.right = 'auto';
+            ui.toggleButton.style.bottom = 'auto';
+        }
+    }
+
+    function stopDraggingToggle() {
+        if (isDraggingToggle) {
+            isDraggingToggle = false;
+            ui.toggleButton.style.cursor = 'pointer';
+            const toggleRect = ui.toggleButton.getBoundingClientRect();
+            chrome.storage.local.set({ 
+                togglePosition: { 
+                    left: toggleRect.left, 
+                    top: toggleRect.top 
+                } 
+            });
+        }
+    }
+
+    function loadPositions() {
+        chrome.storage.local.get(['containerPosition', 'togglePosition'], (result) => {
+            if (result.containerPosition) {
+                ui.container.style.left = result.containerPosition.left + 'px';
+                ui.container.style.top = result.containerPosition.top + 'px';
+                ui.container.style.right = 'auto';
+                ui.container.style.bottom = 'auto';
+            }
+            if (result.togglePosition) {
+                ui.toggleButton.style.left = result.togglePosition.left + 'px';
+                ui.toggleButton.style.top = result.togglePosition.top + 'px';
+                ui.toggleButton.style.right = 'auto';
+                ui.toggleButton.style.bottom = 'auto';
+            }
+        });
     }
 
     function showNotification(message) {
