@@ -1149,21 +1149,52 @@
             try {
                 const data = JSON.parse(e.target.result);
                 
-                if (typeof data !== 'object') throw new Error('Invalid data format');
+                if (typeof data !== 'object' || data === null) throw new Error('Invalid data format: not an object');
 
                 // The data to be set in storage
                 let importData = {};
-                let importCount = 0;
-                for (const chatId in data) {
-                    if (Array.isArray(data[chatId])) {
-                        importData[chatId] = data[chatId];
-                        importCount += data[chatId].length;
+                let messageCount = 0;
+                let chatCount = 0;
+
+                // Separate settings from message data
+                if (data.config) {
+                    importData.config = data.config;
+                }
+                if (data.containerPosition) {
+                    importData.containerPosition = data.containerPosition;
+                }
+                if (data.togglePosition) {
+                    importData.togglePosition = data.togglePosition;
+                }
+
+                // Import message data
+                for (const key in data) {
+                    if (key !== 'config' && key !== 'containerPosition' && key !== 'togglePosition') {
+                        if (Array.isArray(data[key])) {
+                            importData[key] = data[key]; // This is a chat's message array
+                            messageCount += data[key].length;
+                            chatCount++;
+                        }
                     }
                 }
 
                 chrome.storage.local.set(importData, () => {
-                    alert(`Successfully imported ${importCount} saved messages for ${Object.keys(importData).length} chats.`);
-                    // Refresh current view if needed
+                    alert(`Successfully imported ${messageCount} messages for ${chatCount} chats, along with UI settings.`);
+                    
+                    // Apply imported settings immediately
+                    if (importData.config) {
+                        Object.assign(config, importData.config);
+                        // Force UI updates based on new config if needed
+                        const debugToggleButton = document.querySelector('button[title="Toggle debug mode"]');
+                        if (debugToggleButton) {
+                            debugToggleButton.textContent = config.debugMode ? '🐞 On' : '🐞 Off';
+                        }
+                    }
+                    if (importData.containerPosition || importData.togglePosition) {
+                        loadPositions();
+                    }
+
+                    // Refresh current message view if needed
                     const currentChatId = getCurrentChatId();
                     if (currentChatId && importData[currentChatId]) {
                         loadSavedMessages();
@@ -1183,13 +1214,11 @@
         // chrome.storage.local.get(null) gets all items
         chrome.storage.local.get(null, (allData) => {
             if (Object.keys(allData).length === 0) {
-                alert('No saved messages found');
+                alert('No data found to export.');
                 return;
             }
-            // We might have other things in storage, like config, so filter them out.
-            delete allData.config; 
-            
-            downloadJSON(allData, 'messenger_saved_messages.json');
+            // All data including messages and settings will be exported.
+            downloadJSON(allData, 'messenger_saved_messages_and_settings.json');
         });
     }
     
