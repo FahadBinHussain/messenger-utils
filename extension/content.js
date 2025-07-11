@@ -1072,7 +1072,7 @@
             // Add both HTML and plain text versions for compatibility
             pasteEvent.clipboardData.setData('text/html', html);
             const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
+            tempDiv.innerHTML = html.replace(/<br\s*\/?>/gi, '\n'); // Convert <br> to newlines for text
             pasteEvent.clipboardData.setData('text/plain', tempDiv.textContent || '');
             
             element.dispatchEvent(pasteEvent);
