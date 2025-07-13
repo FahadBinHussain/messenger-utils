@@ -1,4 +1,4 @@
-# Messenger Saved Messages Userscript
+# Saved Messages
 
 <img src="https://wakapi-qt1b.onrender.com/api/badge/fahad/interval:any/project:messenger-utils" 
      alt="Wakapi Time Tracking" 
