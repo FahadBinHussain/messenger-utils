@@ -1536,6 +1536,39 @@
         // If no image was found, let the default paste behavior happen
     }
 
+    // Listen for messages from background script
+    chrome.runtime.onMessage.addListener(async (message) => {
+        if (message.type === 'checkClipboardForGif') {
+            try {
+                // Check clipboard for GIF content
+                const clipboardItems = await navigator.clipboard.read();
+                
+                for (const clipboardItem of clipboardItems) {
+                    if (clipboardItem.types.includes('image/gif')) {
+                        const blob = await clipboardItem.getType('image/gif');
+                        const file = new File([blob], "pasted.gif", { type: "image/gif" });
+                        
+                        // Find the messenger input field
+                        const inputField = findMessengerInputField();
+                        if (inputField) {
+                            // Simulate file drop for better GIF handling
+                            simulateFileDrop(file, inputField);
+                            showNotification('GIF pasted from clipboard!');
+                        } else {
+                            showNotification('Could not find message field to paste GIF');
+                        }
+                        return;
+                    }
+                }
+                
+                showNotification('No GIF found in clipboard');
+            } catch (error) {
+                console.error('Error accessing clipboard:', error);
+                showNotification('Error accessing clipboard');
+            }
+        }
+    });
+
     // Initialize
     function init() {
         // Check for URL changes every second
