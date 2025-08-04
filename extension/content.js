@@ -380,6 +380,9 @@
             }
         });
         
+        // Add paste event listener to capture GIFs
+        textarea.addEventListener('paste', handlePaste);
+        
         // Add drag functionality
         header.addEventListener('mousedown', startDragging);
         document.addEventListener('mousemove', drag);
@@ -571,6 +574,7 @@
     async function saveMessage() {
         const messageInput = ui.textarea;
         const messageHtml = messageInput.innerHTML.trim();
+        
         if (!messageHtml) return;
         
         // Create a temporary div to process the HTML
@@ -611,11 +615,19 @@
 
         chrome.storage.local.get(chatId, (result) => {
             const savedMessages = result[chatId] || [];
+            
+            // Determine if this message contains a GIF
+            const isGif = images.some(img => 
+                img.src.includes('data:image/gif') || 
+                (img.src.startsWith('blob:') && img.src.includes('gif'))
+            );
+            
             savedMessages.push({
                 html: finalHtml,
                 timestamp: Date.now(),
-                category: 'default'
+                category: isGif ? 'gif' : 'default'
             });
+            
             chrome.storage.local.set({ [chatId]: savedMessages }, () => {
                 messageInput.innerHTML = '';
                 loadSavedMessages();
@@ -1378,6 +1390,39 @@
         document.removeEventListener('copy', listener);
         
         showNotification(notificationMessage);
+    }
+
+    // Add this new function to handle paste events
+    async function handlePaste(e) {
+        // Check if the clipboard contains a GIF
+        if (e.clipboardData && e.clipboardData.items) {
+            const items = e.clipboardData.items;
+            
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image/gif') !== -1) {
+                    // We found a GIF, let's handle it
+                    e.preventDefault(); // Prevent default paste behavior
+                    
+                    const blob = items[i].getAsFile();
+                    const dataUrl = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                    
+                    // Create an img element with the GIF data
+                    const imgElement = document.createElement('img');
+                    imgElement.src = dataUrl;
+                    ui.textarea.appendChild(imgElement);
+                    
+                    showNotification('GIF added! Press Alt+S to save.');
+                    return;
+                }
+            }
+        }
+        
+        // If no GIF was found, let the default paste behavior happen
     }
 
     // Initialize
