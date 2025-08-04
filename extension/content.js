@@ -267,7 +267,7 @@
         toggleButton.className = 'saved-messages-toggle';
         toggleButton.dataset.savedMessageUiElement = 'true';
         toggleButton.textContent = '📝';
-        toggleButton.title = 'Saved Messages (Alt+M)';
+        toggleButton.title = 'GlitchDraft (Alt+M)';
         document.body.appendChild(toggleButton);
 
         // Create container
@@ -278,7 +278,7 @@
         // Create header
         const header = document.createElement('div');
         header.className = 'saved-messages-header';
-        header.textContent = 'Saved Messages';
+        header.textContent = 'GlitchDraft';
         header.innerHTML += '<span class="keyboard-shortcut">Alt+M</span>';
         header.dataset.savedMessageUiElement = 'true';
         
