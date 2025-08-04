@@ -753,6 +753,15 @@
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = html;
         
+        // Find all links and ensure they're properly preserved
+        const links = tempDiv.querySelectorAll('a');
+        links.forEach(link => {
+            // Replace the link element with its href as plain text
+            const href = link.href;
+            const textNode = document.createTextNode(href);
+            link.parentNode.replaceChild(textNode, link);
+        });
+        
         // Find all images
         const images = Array.from(tempDiv.querySelectorAll('img'));
         
