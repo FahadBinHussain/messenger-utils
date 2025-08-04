@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "GIF Paste for Messenger",
+  "version": "1.0",
+  "description": "Paste GIFs into Messenger like Ditto",
+  "permissions": ["clipboardRead", "scripting", "activeTab"],
+  "host_permissions": ["https://*.messenger.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.messenger.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+"commands": {
+  "paste-gif": {
+    "suggested_key": {
+      "default": "Ctrl+Shift+V"
+    },
+    "description": "Paste a test GIF in Messenger"
+  }
+}
+
+}

@@ -732,6 +732,21 @@
         }
     }
 
+    // Add this function to simulate file drop for GIFs
+    function simulateFileDrop(file, targetElement) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+
+        ['dragenter', 'dragover', 'drop'].forEach(eventType => {
+            const event = new DragEvent(eventType, {
+                bubbles: true,
+                cancelable: true,
+                dataTransfer
+            });
+            targetElement.dispatchEvent(event);
+        });
+    }
+
     // Function to use a saved message with retry mechanism
     function useMessage(html) {
         // Create a temporary div to manipulate the content
@@ -743,6 +758,11 @@
         
         // Get the HTML of the first image for the clipboard
         const firstImageSrc = images.length > 0 ? images[0].src : null;
+        const isGif = firstImageSrc && (
+            firstImageSrc.includes('data:image/gif') || 
+            firstImageSrc.endsWith('.gif') || 
+            firstImageSrc.includes('.gif?')
+        );
         
         // Remove images from the div to get the text-only HTML
         images.forEach(img => img.remove());
@@ -766,35 +786,82 @@
                 attemptInsert();
             }
 
-            // If there was an image, copy it and then trigger paste.
+            // If there was an image, handle it based on type
             if (firstImageSrc) {
-                copyImageNatively(firstImageSrc, (success) => {
-                    if (success) {
-                        // Image copied. Now, find the input field and ask background to paste.
-                        const inputField = findMessengerInputField();
-                        if (inputField) {
-                            inputField.focus();
-                            // Brief delay to ensure focus takes effect before paste command
-                            setTimeout(() => {
-                                chrome.runtime.sendMessage({ action: "paste" }, (response) => {
-                                    if (chrome.runtime.lastError) {
-                                        console.error("Paste message failed:", chrome.runtime.lastError.message);
-                                        showNotification('Image copied! Auto-paste failed. Please paste manually.');
-                                    } else if (!response || !response.success) {
-                                        console.error("Paste command failed in background:", response?.error);
-                                        showNotification('Image copied! Auto-paste failed. Please paste manually.');
+                if (isGif) {
+                    // For GIFs, use the simulateFileDrop approach
+                    (async () => {
+                        try {
+                            const response = await fetch(firstImageSrc);
+                            const blob = await response.blob();
+                            const file = new File([blob], "saved.gif", { type: "image/gif" });
+                            
+                            // Find the messenger input field
+                            const inputField = findMessengerInputField();
+                            if (inputField) {
+                                // Simulate file drop for better GIF handling
+                                simulateFileDrop(file, inputField);
+                                showNotification('GIF added to message field');
+                            } else {
+                                showNotification('Could not find message field to add GIF');
+                            }
+                        } catch (error) {
+                            console.error('Error using GIF:', error);
+                            // Fallback to the original method
+                            copyImageNatively(firstImageSrc, (success) => {
+                                if (success) {
+                                    // Original paste logic
+                                    const inputField = findMessengerInputField();
+                                    if (inputField) {
+                                        inputField.focus();
+                                        setTimeout(() => {
+                                            chrome.runtime.sendMessage({ action: "paste" }, (response) => {
+                                                if (chrome.runtime.lastError || !response || !response.success) {
+                                                    showNotification('GIF copied! Auto-paste failed. Please paste manually.');
+                                                }
+                                            });
+                                        }, 50);
+                                    } else {
+                                        showNotification('GIF copied, but could not find where to paste it.');
                                     }
-                                });
-                            }, 50);
-                        } else {
-                            showNotification('Image copied, but could not find where to paste it.');
+                                } else {
+                                    // Fallback for when even native copy fails
+                                    const imageHtml = `<img src="${firstImageSrc}">`;
+                                    copyToClipboard(imageHtml, 'Failed to copy GIF directly. Copied as HTML instead.');
+                                }
+                            });
                         }
-                    } else {
-                        // Fallback for when even native copy fails
-                        const imageHtml = `<img src="${firstImageSrc}">`;
-                        copyToClipboard(imageHtml, 'Failed to copy image directly. Copied as HTML instead.');
-                    }
-                });
+                    })();
+                } else {
+                    // Use the original method for non-GIF images
+                    copyImageNatively(firstImageSrc, (success) => {
+                        if (success) {
+                            // Image copied. Now, find the input field and ask background to paste.
+                            const inputField = findMessengerInputField();
+                            if (inputField) {
+                                inputField.focus();
+                                // Brief delay to ensure focus takes effect before paste command
+                                setTimeout(() => {
+                                    chrome.runtime.sendMessage({ action: "paste" }, (response) => {
+                                        if (chrome.runtime.lastError) {
+                                            console.error("Paste message failed:", chrome.runtime.lastError.message);
+                                            showNotification('Image copied! Auto-paste failed. Please paste manually.');
+                                        } else if (!response || !response.success) {
+                                            console.error("Paste command failed in background:", response?.error);
+                                            showNotification('Image copied! Auto-paste failed. Please paste manually.');
+                                        }
+                                    });
+                                }, 50);
+                            } else {
+                                showNotification('Image copied, but could not find where to paste it.');
+                            }
+                        } else {
+                            // Fallback for when even native copy fails
+                            const imageHtml = `<img src="${firstImageSrc}">`;
+                            copyToClipboard(imageHtml, 'Failed to copy image directly. Copied as HTML instead.');
+                        }
+                    });
+                }
             }
         }, 50);
     }
@@ -1379,30 +1446,94 @@
             const items = e.clipboardData.items;
             
             for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image/gif') !== -1) {
-                    // We found a GIF, let's handle it
+                // Check for any image type
+                if (items[i].type.indexOf('image/') !== -1) {
+                    // We found an image, let's handle it
                     e.preventDefault(); // Prevent default paste behavior
                     
                     const blob = items[i].getAsFile();
-                    const dataUrl = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(blob);
-                    });
+                    const isGif = items[i].type === 'image/gif';
                     
-                    // Create an img element with the GIF data
-                    const imgElement = document.createElement('img');
-                    imgElement.src = dataUrl;
-                    ui.textarea.appendChild(imgElement);
+                    if (isGif) {
+                        // For GIFs, use the simulateFileDrop approach for better compatibility
+                        const file = new File([blob], "pasted.gif", { type: "image/gif" });
+                        
+                        // First add to our textarea for saving
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                        
+                        // Create an img element with the GIF data for our saved messages
+                        const imgElement = document.createElement('img');
+                        imgElement.src = dataUrl;
+                        ui.textarea.appendChild(imgElement);
+                        
+                        showNotification('GIF added! Press Alt+S to save.');
+                        return;
+                    } else {
+                        // For other images, convert to data URL as before
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                        
+                        // Create an img element with the image data
+                        const imgElement = document.createElement('img');
+                        imgElement.src = dataUrl;
+                        ui.textarea.appendChild(imgElement);
+                        
+                        // Position cursor after the image
+                        positionCursorAtEnd(ui.textarea);
+                        
+                        showNotification('Image added! Press Alt+S to save.');
+                        return;
+                    }
+                }
+            }
+            
+            // Check for URLs that might be GIFs
+            const text = e.clipboardData.getData('text');
+            if (text && (text.endsWith('.gif') || text.includes('.gif?'))) {
+                e.preventDefault(); // Prevent default paste behavior
+                
+                try {
+                    // Fetch the GIF
+                    const response = await fetch(text);
+                    const blob = await response.blob();
                     
-                    showNotification('GIF added! Press Alt+S to save.');
-                    return;
+                    if (blob.type === 'image/gif') {
+                        // Create a File object for the GIF
+                        const file = new File([blob], "pasted.gif", { type: "image/gif" });
+                        
+                        // Convert to data URL for our saved messages
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                        
+                        // Create an img element with the GIF data
+                        const imgElement = document.createElement('img');
+                        imgElement.src = dataUrl;
+                        ui.textarea.appendChild(imgElement);
+                        
+                        showNotification('GIF URL added! Press Alt+S to save.');
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error adding GIF from URL:', error);
+                    // Let the default paste behavior happen
                 }
             }
         }
         
-        // If no GIF was found, let the default paste behavior happen
+        // If no image was found, let the default paste behavior happen
     }
 
     // Initialize
