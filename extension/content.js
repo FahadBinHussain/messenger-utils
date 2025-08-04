@@ -616,16 +616,10 @@
         chrome.storage.local.get(chatId, (result) => {
             const savedMessages = result[chatId] || [];
             
-            // Determine if this message contains a GIF
-            const isGif = images.some(img => 
-                img.src.includes('data:image/gif') || 
-                (img.src.startsWith('blob:') && img.src.includes('gif'))
-            );
-            
-            savedMessages.push({
+            // Add the new message at the beginning of the array (newest first)
+            savedMessages.unshift({
                 html: finalHtml,
-                timestamp: Date.now(),
-                category: isGif ? 'gif' : 'default'
+                timestamp: Date.now()
             });
             
             chrome.storage.local.set({ [chatId]: savedMessages }, () => {
@@ -653,72 +647,58 @@
 
             ui.body.innerHTML = '';
             
-            // Group messages by category (for future enhancement)
-            const messagesByCategory = {};
-            savedMessages.forEach((message) => {
-                const category = message.category || 'default';
-                if (!messagesByCategory[category]) {
-                    messagesByCategory[category] = [];
-                }
-                messagesByCategory[category].push(message);
-            });
+            // Sort messages by timestamp (newest first)
+            savedMessages.sort((a, b) => b.timestamp - a.timestamp);
             
-            // Render each category
-            Object.keys(messagesByCategory).forEach((category) => {
-                const categoryMessages = messagesByCategory[category];
+            // Render all messages
+            savedMessages.forEach((message, index) => {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'saved-messages-item';
+                messageElement.dataset.savedMessageUiElement = 'true';
                 
-                // Sort messages by timestamp (newest first)
-                categoryMessages.sort((a, b) => b.timestamp - a.timestamp);
+                const messageText = document.createElement('div');
+                messageText.innerHTML = message.html;
+                messageText.dataset.savedMessageUiElement = 'true';
                 
-                categoryMessages.forEach((message, index) => {
-                    const messageElement = document.createElement('div');
-                    messageElement.className = 'saved-messages-item';
-                    messageElement.dataset.savedMessageUiElement = 'true';
-                    
-                    const messageText = document.createElement('div');
-                    messageText.innerHTML = message.html;
-                    messageText.dataset.savedMessageUiElement = 'true';
-                    
-                    const timestampDiv = document.createElement('div');
-                    timestampDiv.className = 'saved-messages-timestamp';
-                    timestampDiv.textContent = formatTimestamp(message.timestamp);
-                    timestampDiv.dataset.savedMessageUiElement = 'true';
-                    
-                    const actionsDiv = document.createElement('div');
-                    actionsDiv.className = 'saved-messages-actions';
-                    actionsDiv.dataset.savedMessageUiElement = 'true';
-                    
-                    const useButton = document.createElement('button');
-                    useButton.className = 'saved-message-use';
-                    useButton.textContent = 'Use';
-                    useButton.dataset.savedMessageUiElement = 'true';
-                    useButton.onclick = () => useMessage(message.html);
-                    
-                    const copyButton = document.createElement('button');
-                    copyButton.className = 'saved-message-copy';
-                    copyButton.textContent = 'Copy';
-                    copyButton.style.backgroundColor = '#4CAF50';
-                    copyButton.style.color = 'white';
-                    copyButton.title = 'Copy to clipboard';
-                    copyButton.dataset.savedMessageUiElement = 'true';
-                    copyButton.onclick = () => copyToClipboard(message.html, 'Message copied to clipboard! You can now paste it.');
-                    
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'saved-message-delete';
-                    deleteButton.textContent = 'Delete';
-                    deleteButton.dataset.savedMessageUiElement = 'true';
-                    deleteButton.onclick = () => deleteMessage(savedMessages.indexOf(message));
-                    
-                    actionsDiv.appendChild(useButton);
-                    actionsDiv.appendChild(copyButton);
-                    actionsDiv.appendChild(deleteButton);
-                    
-                    messageElement.appendChild(messageText);
-                    messageElement.appendChild(timestampDiv);
-                    messageElement.appendChild(actionsDiv);
-                    
-                    ui.body.appendChild(messageElement);
-                });
+                const timestampDiv = document.createElement('div');
+                timestampDiv.className = 'saved-messages-timestamp';
+                timestampDiv.textContent = formatTimestamp(message.timestamp);
+                timestampDiv.dataset.savedMessageUiElement = 'true';
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'saved-messages-actions';
+                actionsDiv.dataset.savedMessageUiElement = 'true';
+                
+                const useButton = document.createElement('button');
+                useButton.className = 'saved-message-use';
+                useButton.textContent = 'Use';
+                useButton.dataset.savedMessageUiElement = 'true';
+                useButton.onclick = () => useMessage(message.html);
+                
+                const copyButton = document.createElement('button');
+                copyButton.className = 'saved-message-copy';
+                copyButton.textContent = 'Copy';
+                copyButton.style.backgroundColor = '#4CAF50';
+                copyButton.style.color = 'white';
+                copyButton.title = 'Copy to clipboard';
+                copyButton.dataset.savedMessageUiElement = 'true';
+                copyButton.onclick = () => copyToClipboard(message.html, 'Message copied to clipboard! You can now paste it.');
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'saved-message-delete';
+                deleteButton.textContent = 'Delete';
+                deleteButton.dataset.savedMessageUiElement = 'true';
+                deleteButton.onclick = () => deleteMessage(index);
+                
+                actionsDiv.appendChild(useButton);
+                actionsDiv.appendChild(copyButton);
+                actionsDiv.appendChild(deleteButton);
+                
+                messageElement.appendChild(messageText);
+                messageElement.appendChild(timestampDiv);
+                messageElement.appendChild(actionsDiv);
+                
+                ui.body.appendChild(messageElement);
             });
         });
     }
