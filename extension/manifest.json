@@ -6,7 +6,11 @@
     "permissions": [
         "storage",
         "clipboardWrite",
-        "clipboardRead"
+        "clipboardRead",
+        "identity"
+    ],
+    "host_permissions": [
+        "https://www.googleapis.com/"
     ],
     "background": {
         "service_worker": "background.js"
@@ -27,8 +31,16 @@
     ],
     "action": {
         "default_title": "GlitchDraft",
-        "default_popup": "popup.html"
+        "default_popup": "popup.html",
+        "default_icon": "icons/icon128.png"
     },
     "icons": {
+        "128": "icons/icon128.png"
+    },
+    "oauth2": {
+        "client_id": "938237270844-v0c8m9jf4hjj0h7pkn5kjf2pbsijjccc.apps.googleusercontent.com",
+        "scopes": [
+            "https://www.googleapis.com/auth/drive.file"
+        ]
     }
 } 

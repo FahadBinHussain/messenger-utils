@@ -4,15 +4,46 @@
     <title>GlitchDraft</title>
     <style>
         body {
-            width: 200px;
-            padding: 10px;
+            width: 250px;
+            padding: 15px;
             font-family: sans-serif;
             text-align: center;
+        }
+        .sync-button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .sync-button:hover {
+            background-color: #3367d6;
+        }
+        .sync-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+        .success {
+            color: #4caf50;
+        }
+        .error {
+            color: #f44336;
         }
     </style>
 </head>
 <body>
     <h1>GlitchDraft</h1>
     <p>The saved messages panel is available on messenger.com pages.</p>
+    <button id="syncButton" class="sync-button">Sync to Google Drive</button>
+    <div id="status" class="status"></div>
+    <script src="popup.js"></script>
 </body>
 </html> 
