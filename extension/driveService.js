@@ -5,6 +5,20 @@ class DriveService {
         this.appFolderName = "GlitchDraft";
         this.appFolderId = null;
         this.authToken = null;
+        // Load saved auth token on initialization
+        this.loadSavedToken();
+    }
+
+    async loadSavedToken() {
+        try {
+            const data = await chrome.storage.local.get(['authToken']);
+            if (data.authToken) {
+                this.authToken = data.authToken;
+                console.log('Loaded saved auth token');
+            }
+        } catch (error) {
+            console.error('Error loading saved token:', error);
+        }
     }
 
     // Authentication Function
@@ -70,7 +84,9 @@ class DriveService {
             
             if (token) {
                 this.authToken = token;
-                console.log("Auth token obtained successfully");
+                // Save token to storage
+                await chrome.storage.local.set({ authToken: token });
+                console.log("Auth token obtained and saved successfully");
                 return token;
             } else {
                 throw new Error("Failed to get auth token");
@@ -137,6 +153,9 @@ class DriveService {
             });
 
             if (!response.ok) {
+                if (response.status === 401) {
+                    await this.clearAuthToken();
+                }
                 throw new Error(`Search failed: ${response.status}`);
             }
 
@@ -375,17 +394,27 @@ class DriveService {
     // Check if user is authenticated
     async isAuthenticated() {
         try {
-            // For Microsoft Edge, we need to use interactive authentication
-            // Non-interactive auth doesn't work reliably in Edge
-            if (this.authToken) {
-                return true;
+            if (!this.authToken) {
+                return false;
             }
-            
-            // Don't trigger authentication here, just return false
-            // Authentication should be triggered explicitly when needed
-            return false;
+
+            // Verify token is still valid with a test API call
+            const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    await this.clearAuthToken();
+                }
+                return false;
+            }
+
+            return true;
         } catch (error) {
-            // If authentication fails, user needs to authenticate
+            console.error('Error checking authentication:', error);
             return false;
         }
     }
@@ -409,6 +438,17 @@ class DriveService {
             console.log('Cleared cached folder ID');
         } catch (error) {
             console.error('Error clearing cached folder:', error);
+        }
+    }
+
+    // Clear auth token when it becomes invalid
+    async clearAuthToken() {
+        try {
+            await chrome.storage.local.remove(['authToken']);
+            this.authToken = null;
+            console.log('Cleared auth token');
+        } catch (error) {
+            console.error('Error clearing auth token:', error);
         }
     }
 
