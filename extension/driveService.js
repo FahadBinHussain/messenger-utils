@@ -26,61 +26,72 @@ class DriveService {
         try {
             console.log("Getting auth token, interactive:", interactive);
             
-            // Use OAuth2 flow for Microsoft Edge compatibility
+            // Detect browser type
+            const isChrome = navigator.userAgent.includes('Chrome') && !navigator.userAgent.includes('Edge');
+            console.log("Browser detection: Chrome =", isChrome);
+            
             const manifest = chrome.runtime.getManifest();
             const clientId = manifest.oauth2.client_id;
             const scopes = manifest.oauth2.scopes.join(' ');
             
-            // This is a special URL that the browser knows how to intercept.
-            const redirectUri = chrome.identity.getRedirectURL("oauth2");
-            console.log("Using redirect URI:", redirectUri);
+            let token;
+            
+            if (isChrome) {
+                // Chrome-specific approach: Open a tab for authentication
+                console.log("Using Chrome-specific authentication approach");
+                token = await this.chromeTabAuth(clientId, scopes, interactive);
+            } else {
+                // Edge and other browsers: Use web auth flow
+                console.log("Using standard web auth flow for non-Chrome browsers");
+                const redirectUri = chrome.identity.getRedirectURL("oauth2");
+                console.log("Using redirect URI:", redirectUri);
 
-            let authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+                let authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+                authUrl.searchParams.append('client_id', clientId);
+                authUrl.searchParams.append('redirect_uri', redirectUri);
+                authUrl.searchParams.append('response_type', 'token');
+                authUrl.searchParams.append('scope', scopes);
+                authUrl.searchParams.append('prompt', interactive ? 'consent' : 'none');
 
-            authUrl.searchParams.append('client_id', clientId);
-            authUrl.searchParams.append('redirect_uri', redirectUri);
-            authUrl.searchParams.append('response_type', 'token'); // 'token' for client-side flow
-            authUrl.searchParams.append('scope', scopes);
-            authUrl.searchParams.append('prompt', interactive ? 'consent' : 'none');
-
-            const token = await new Promise((resolve, reject) => {
-                const options = {
-                    url: authUrl.href,
-                    interactive: interactive
-                };
-                
-                // Add Edge-specific options
-                if (!interactive) {
-                    options.abortOnLoadForNonInteractive = true;
-                    options.timeoutMsForNonInteractive = 30000;
-                }
-
-                chrome.identity.launchWebAuthFlow(options, (responseUrl) => {
-                    if (chrome.runtime.lastError) {
-                        console.error("launchWebAuthFlow failed:", chrome.runtime.lastError.message);
-                        reject(new Error(`Authentication failed: ${chrome.runtime.lastError.message}`));
-                        return;
-                    }
+                token = await new Promise((resolve, reject) => {
+                    const options = {
+                        url: authUrl.href,
+                        interactive: interactive
+                    };
                     
-                    if (!responseUrl) {
-                        reject(new Error("Could not get token. User may have cancelled the login flow."));
-                        return;
+                    // Add Edge-specific options
+                    if (!interactive) {
+                        options.abortOnLoadForNonInteractive = true;
+                        options.timeoutMsForNonInteractive = 30000;
                     }
-                    
-                    // The token is in the URL fragment.
-                    const url = new URL(responseUrl);
-                    const params = new URLSearchParams(url.hash.substring(1)); // remove the '#'
-                    const accessToken = params.get('access_token');
 
-                    if (accessToken) {
-                        console.log("Auth token received successfully.");
-                        resolve(accessToken);
-                    } else {
-                        console.error("Could not extract token from response URL.");
-                        reject(new Error("Could not extract token from response."));
-                    }
+                    chrome.identity.launchWebAuthFlow(options, (responseUrl) => {
+                        if (chrome.runtime.lastError) {
+                            console.error("launchWebAuthFlow failed:", chrome.runtime.lastError.message);
+                            reject(new Error(`Authentication failed: ${chrome.runtime.lastError.message}`));
+                            return;
+                        }
+                        
+                        if (!responseUrl) {
+                            reject(new Error("Could not get token. User may have cancelled the login flow."));
+                            return;
+                        }
+                        
+                        // The token is in the URL fragment.
+                        const url = new URL(responseUrl);
+                        const params = new URLSearchParams(url.hash.substring(1)); // remove the '#'
+                        const accessToken = params.get('access_token');
+
+                        if (accessToken) {
+                            console.log("Auth token received successfully.");
+                            resolve(accessToken);
+                        } else {
+                            console.error("Could not extract token from response URL.");
+                            reject(new Error("Could not extract token from response."));
+                        }
+                    });
                 });
-            });
+            }
             
             if (token) {
                 this.authToken = token;
@@ -450,6 +461,68 @@ class DriveService {
         } catch (error) {
             console.error('Error clearing auth token:', error);
         }
+    }
+
+    // Chrome-specific authentication using tabs
+    async chromeTabAuth(clientId, scopes, interactive) {
+        if (!interactive) {
+            console.log("Non-interactive auth requested, but Chrome requires interactive auth");
+            return null;
+        }
+
+        console.log("Starting Chrome tab authentication");
+        return new Promise((resolve, reject) => {
+            // Create the auth URL
+            const redirectUri = chrome.identity.getRedirectURL();
+            console.log("Chrome auth redirect URI:", redirectUri);
+            
+            const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+            authUrl.searchParams.append('client_id', clientId);
+            authUrl.searchParams.append('redirect_uri', redirectUri);
+            authUrl.searchParams.append('response_type', 'token');
+            authUrl.searchParams.append('scope', scopes);
+            authUrl.searchParams.append('prompt', 'consent');
+            
+            // Create a tab to handle the OAuth flow
+            chrome.tabs.create({ url: authUrl.toString() }, (tab) => {
+                console.log("Auth tab created with ID:", tab.id);
+                
+                // Listen for URL changes in the tab
+                const tabUpdateListener = (tabId, changeInfo) => {
+                    // Only process if it's our auth tab and URL has changed
+                    if (tabId !== tab.id || !changeInfo.url) return;
+                    
+                    // Check if the URL contains the access token
+                    if (changeInfo.url.includes(redirectUri) && changeInfo.url.includes('access_token=')) {
+                        console.log("Detected redirect with token");
+                        
+                        // Extract the token
+                        const url = new URL(changeInfo.url);
+                        const params = new URLSearchParams(url.hash.substring(1));
+                        const accessToken = params.get('access_token');
+                        
+                        if (accessToken) {
+                            // Clean up
+                            chrome.tabs.onUpdated.removeListener(tabUpdateListener);
+                            chrome.tabs.remove(tab.id);
+                            
+                            console.log("Successfully obtained token via Chrome tab");
+                            resolve(accessToken);
+                        }
+                    }
+                };
+                
+                // Add the listener
+                chrome.tabs.onUpdated.addListener(tabUpdateListener);
+                
+                // Set a timeout to prevent hanging
+                setTimeout(() => {
+                    chrome.tabs.onUpdated.removeListener(tabUpdateListener);
+                    chrome.tabs.remove(tab.id);
+                    reject(new Error("Authentication timed out after 2 minutes"));
+                }, 120000); // 2 minutes timeout
+            });
+        });
     }
 
     // Force folder recreation (for testing)
