@@ -4,7 +4,7 @@
     <title>GlitchDraft</title>
     <style>
         body {
-            width: 250px;
+            width: 300px;
             padding: 15px;
             font-family: sans-serif;
             text-align: center;
@@ -16,7 +16,7 @@
             padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
-            margin-top: 10px;
+            margin: 5px;
             font-size: 14px;
         }
         .sync-button:hover {
@@ -25,6 +25,19 @@
         .sync-button:disabled {
             background-color: #ccc;
             cursor: not-allowed;
+        }
+        .auth-button {
+            background-color: #34a853;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .auth-button:hover {
+            background-color: #2d8a46;
         }
         .status {
             margin-top: 10px;
@@ -37,13 +50,31 @@
         .error {
             color: #f44336;
         }
+        .warning {
+            color: #ff9800;
+        }
+        .sync-info {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #999;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
     <h1>GlitchDraft</h1>
     <p>The saved messages panel is available on messenger.com pages.</p>
-    <button id="syncButton" class="sync-button">Sync to Google Drive</button>
-    <div id="status" class="status"></div>
+    
+    <div id="authSection">
+        <button id="authButton" class="auth-button">Sign in with Google</button>
+    </div>
+    
+    <div id="syncSection" style="display: none;">
+        <button id="syncButton" class="sync-button">Sync Now</button>
+        <div id="status" class="status"></div>
+        <div id="syncInfo" class="sync-info"></div>
+    </div>
+    
     <script src="popup.js"></script>
 </body>
 </html> 

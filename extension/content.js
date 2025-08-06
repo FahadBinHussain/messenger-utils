@@ -613,6 +613,25 @@
             return;
         }
 
+        // Extract text content and image files for cloud sync
+        const textContent = tempDiv.textContent || tempDiv.innerText || '';
+        const imageFiles = [];
+        
+        // Extract images as files for cloud sync
+        const imageElements = tempDiv.querySelectorAll('img');
+        for (const img of imageElements) {
+            if (img.src.startsWith('data:')) {
+                try {
+                    const response = await fetch(img.src);
+                    const blob = await response.blob();
+                    const file = new File([blob], 'image.jpg', { type: blob.type });
+                    imageFiles.push(file);
+                } catch (error) {
+                    console.error('Error converting image to file:', error);
+                }
+            }
+        }
+
         chrome.storage.local.get(chatId, (result) => {
             const savedMessages = result[chatId] || [];
             
@@ -625,8 +644,40 @@
             chrome.storage.local.set({ [chatId]: savedMessages }, () => {
                 messageInput.innerHTML = '';
                 loadSavedMessages();
+                
+                // Sync to Google Drive if authenticated
+                syncDraftToCloud(textContent, imageFiles.length > 0 ? imageFiles[0] : null);
             });
         });
+    }
+
+    // Function to sync draft to Google Drive
+    async function syncDraftToCloud(textContent, imageFile) {
+        try {
+            const response = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({
+                    action: 'uploadDraft',
+                    data: {
+                        textContent: textContent,
+                        imageFile: imageFile
+                    }
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        resolve(response);
+                    }
+                });
+            });
+
+            if (response && response.success) {
+                console.log('Draft synced to Google Drive successfully');
+            } else {
+                console.log('Cloud sync failed:', response ? response.message : 'Unknown error');
+            }
+        } catch (error) {
+            console.error('Error syncing to cloud:', error);
+        }
     }
 
     // Function to load saved messages for current chat
@@ -1154,11 +1205,45 @@
 
         chrome.storage.local.get(chatId, (result) => {
             const savedMessages = result[chatId] || [];
+            const deletedMessage = savedMessages[index];
             savedMessages.splice(index, 1);
+            
             chrome.storage.local.set({ [chatId]: savedMessages }, () => {
                 loadSavedMessages();
+                
+                // Sync deletion to Google Drive if the message was synced
+                if (deletedMessage && deletedMessage.remoteFileId) {
+                    syncDeletionToCloud(deletedMessage.remoteFileId, deletedMessage.remoteImageId);
+                }
             });
         });
+    }
+
+    // Function to sync deletion to Google Drive
+    async function syncDeletionToCloud(jsonFileId, imageFileId) {
+        try {
+            const response = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({
+                    action: 'deleteDraft',
+                    draftId: jsonFileId,
+                    imageFileId: imageFileId
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        resolve(response);
+                    }
+                });
+            });
+
+            if (response && response.success) {
+                console.log('Draft deletion synced to Google Drive successfully');
+            } else {
+                console.log('Cloud deletion failed:', response ? response.message : 'Unknown error');
+            }
+        } catch (error) {
+            console.error('Error syncing deletion to cloud:', error);
+        }
     }
     
     // Function to trigger the import dialog
