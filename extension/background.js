@@ -49,103 +49,46 @@ async function syncNow() {
             return;
         }
 
-        // Ensure folder exists by calling getAppFolderId first
+        // Ensure folder exists
         console.log('Ensuring app folder exists...');
         await driveService.getAppFolderId();
 
-        // Force folder recreation to ensure it exists
-        console.log('Forcing folder recreation to ensure it exists...');
-        await driveService.forceFolderRecreation();
+        // Get local data
+        const localData = await chrome.storage.local.get(null);
+        
+        // Get remote data
+        const remoteData = await driveService.downloadLatestSync();
 
-        // Get remote drafts
-        console.log('Listing remote drafts...');
-        let remoteDrafts = [];
-        try {
-            remoteDrafts = await driveService.listRemoteDrafts();
-        } catch (error) {
-            console.log('Failed to list remote drafts:', error);
-            // If listing fails, just continue with empty drafts
-            remoteDrafts = [];
+        if (remoteData) {
+            // Compare timestamps and use the newer version
+            const localTime = localData.lastSyncTime || 0;
+            const remoteTime = remoteData.lastSyncTime || 0;
+
+            if (remoteTime > localTime) {
+                // Remote is newer, update local
+                await chrome.storage.local.set(remoteData);
+                console.log('Updated local data from remote');
+            } else {
+                // Local is newer or same, update remote
+                await driveService.uploadSync(localData);
+                console.log('Updated remote data from local');
+            }
+        } else {
+            // No remote data exists, upload local
+            await driveService.uploadSync(localData);
+            console.log('Uploaded initial sync data');
         }
-        
-        // Get local drafts
-        const localData = await chrome.storage.local.get(['drafts']);
-        const localDrafts = localData.drafts || {};
 
-        // Compare and sync
-        await syncDrafts(remoteDrafts, localDrafts);
-
-        console.log('Sync completed successfully');
-        
         // Update last sync time
         await chrome.storage.local.set({ lastSyncTime: Date.now() });
+        console.log('Sync completed successfully');
 
     } catch (error) {
         console.error('Sync failed:', error);
-        throw error; // Re-throw to let caller handle it
+        throw error;
     } finally {
         syncInProgress = false;
     }
-}
-
-// Sync drafts between local and remote
-async function syncDrafts(remoteDrafts, localDrafts) {
-    const remoteDraftIds = new Set(remoteDrafts.map(draft => draft.id));
-    const localDraftIds = new Set(Object.keys(localDrafts));
-
-    // Download new remote drafts
-    for (const remoteDraft of remoteDrafts) {
-        if (!localDrafts[remoteDraft.id]) {
-            try {
-                const draftData = await driveService.downloadDraft(remoteDraft.id);
-                
-                // Download associated image if exists
-                let imageBlob = null;
-                if (draftData.imageId) {
-                    imageBlob = await driveService.getImageBlob(draftData.imageId);
-                }
-
-                // Save to local storage
-                localDrafts[remoteDraft.id] = {
-                    text: draftData.text,
-                    imageBlob: imageBlob,
-                    imageId: draftData.imageId,
-                    modifiedTime: draftData.modifiedTime,
-                    timestamp: draftData.timestamp
-                };
-
-                console.log('Downloaded remote draft:', remoteDraft.id);
-            } catch (error) {
-                console.error('Failed to download draft:', remoteDraft.id, error);
-            }
-        }
-    }
-
-    // Upload new local drafts
-    for (const [localId, localDraft] of Object.entries(localDrafts)) {
-        if (!remoteDraftIds.has(localId)) {
-            try {
-                // Check if this draft has been uploaded before
-                if (!localDraft.remoteFileId) {
-                    const uploadResult = await driveService.uploadDraft({
-                        textContent: localDraft.text,
-                        imageFile: localDraft.imageBlob ? new File([localDraft.imageBlob], 'image.jpg') : null
-                    });
-
-                    // Update local draft with remote file IDs
-                    localDrafts[localId].remoteFileId = uploadResult.jsonFileId;
-                    localDrafts[localId].remoteImageId = uploadResult.imageFileId;
-
-                    console.log('Uploaded local draft:', localId);
-                }
-            } catch (error) {
-                console.error('Failed to upload draft:', localId, error);
-            }
-        }
-    }
-
-    // Save updated local drafts
-    await chrome.storage.local.set({ drafts: localDrafts });
 }
 
 // Listen for messages from content script and popup
@@ -249,4 +192,4 @@ async function handleGetSyncStatus(sendResponse) {
         console.error('Status check failed:', error);
         sendResponse({ success: false, message: error.message });
     }
-} 
+}

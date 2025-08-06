@@ -5,8 +5,6 @@
     "description": "Save draft messages, including text and images, for specific messenger.com chat threads to send later.",
     "permissions": [
         "storage",
-        "clipboardWrite",
-        "clipboardRead",
         "identity",
         "alarms"
     ],
@@ -45,4 +43,4 @@
             "https://www.googleapis.com/auth/drive.file"
         ]
     }
-} 
+}

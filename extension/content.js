@@ -1324,13 +1324,26 @@
     // Function to export all saved messages
     function exportSavedMessages() {
         // chrome.storage.local.get(null) gets all items
-        chrome.storage.local.get(null, (allData) => {
+        chrome.storage.local.get(null, async (allData) => {
             if (Object.keys(allData).length === 0) {
                 alert('No data found to export.');
                 return;
             }
-            // All data including messages and settings will be exported.
-            downloadJSON(allData, 'messenger_saved_messages_and_settings.json');
+
+            // Trigger a sync before exporting to ensure latest data
+            try {
+                await chrome.runtime.sendMessage({ action: 'sync' });
+                console.log('Sync completed before export');
+            } catch (error) {
+                console.warn('Sync before export failed:', error);
+                // Continue with export even if sync fails
+            }
+
+            // Get fresh data after sync
+            chrome.storage.local.get(null, (syncedData) => {
+                // All data including messages and settings will be exported
+                downloadJSON(syncedData, 'messenger_saved_messages_and_settings.json');
+            });
         });
     }
     
@@ -1636,4 +1649,4 @@
 
     // Start after page load
     window.addEventListener('load', init);
-})(); 
+})();

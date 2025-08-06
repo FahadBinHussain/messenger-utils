@@ -193,31 +193,53 @@ class DriveService {
         }
     }
 
-    // Draft Upload Function
-    async uploadDraft({ textContent, imageFile }) {
+    // Sync Functions
+    async uploadSync(data) {
         try {
             const folderId = await this.getAppFolderId();
             const timestamp = Date.now();
-            const imageFileId = imageFile ? await this.uploadImageFile(imageFile, folderId) : null;
 
-            // Create metadata JSON
-            const metadata = {
-                text: textContent,
-                imageId: imageFileId,
-                modifiedTime: new Date().toISOString(),
-                timestamp: timestamp
-            };
+            // Upload data as JSON file
+            const jsonFileName = 'messenger_sync.json';
+            await this.uploadJsonFile(data, jsonFileName, folderId);
 
-            // Upload metadata as JSON file
-            const jsonFileName = `draft-${timestamp}.json`;
-            const jsonFileId = await this.uploadJsonFile(metadata, jsonFileName, folderId);
+            console.log('Sync data uploaded successfully');
+        } catch (error) {
+            console.error('Error uploading sync:', error);
+            throw error;
+        }
+    }
 
-            console.log("Draft uploaded successfully:", { jsonFileId, imageFileId });
-            return { jsonFileId, imageFileId };
+    async downloadLatestSync() {
+        try {
+            const folderId = await this.getAppFolderId();
+            
+            // Search for sync file
+            const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name='messenger_sync.json' and trashed=false`;
+            
+            const response = await fetch(searchUrl, {
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Search failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (!data.files || data.files.length === 0) {
+                return null;
+            }
+
+            // Download the sync file
+            const fileId = data.files[0].id;
+            const syncData = await this.downloadFile(fileId);
+            return syncData;
 
         } catch (error) {
-            console.error("Error uploading draft:", error);
-            throw error;
+            console.error('Error downloading sync:', error);
+            return null;
         }
     }
 
@@ -258,7 +280,6 @@ class DriveService {
     async uploadJsonFile(metadata, fileName, folderId) {
         try {
             const fileContent = JSON.stringify(metadata, null, 2);
-            const blob = new Blob([fileContent], { type: 'application/json' });
 
             const metadataObj = {
                 name: fileName,
@@ -266,15 +287,31 @@ class DriveService {
                 mimeType: 'application/json'
             };
 
-            const multipartBody = this.createMultipartBody(metadataObj, blob);
+            const boundary = 'boundary';
+            const delimiter = `--${boundary}\r\n`;
+            const closeDelimiter = `\r\n--${boundary}--`;
+
+            // Build multipart body
+            let requestBody = '';
+            
+            // Metadata part
+            requestBody += delimiter;
+            requestBody += 'Content-Type: application/json; charset=UTF-8\r\n\r\n';
+            requestBody += JSON.stringify(metadataObj) + '\r\n';
+            
+            // File content part
+            requestBody += delimiter;
+            requestBody += 'Content-Type: application/json\r\n\r\n';
+            requestBody += fileContent;
+            requestBody += closeDelimiter;
 
             const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`,
-                    'Content-Type': 'multipart/related; boundary=boundary'
+                    'Content-Type': `multipart/related; boundary=${boundary}`
                 },
-                body: multipartBody
+                body: requestBody
             });
 
             if (!response.ok) {
@@ -291,50 +328,10 @@ class DriveService {
         }
     }
 
-    createMultipartBody(metadata, file) {
-        const boundary = 'boundary';
-        const delimiter = `\r\n--${boundary}\r\n`;
-        const closeDelim = `\r\n--${boundary}--`;
 
-        const metadataPart = `Content-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}`;
-        const filePart = `Content-Type: ${file.type}\r\n\r\n`;
 
-        return delimiter + metadataPart + delimiter + filePart + file + closeDelim;
-    }
-
-    // Draft Fetching Functions
-    async listRemoteDrafts() {
-        try {
-            const folderId = await this.getAppFolderId();
-            
-            const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name contains 'draft-' and mimeType='application/json' and trashed=false&orderBy=modifiedTime desc`;
-            
-            const response = await fetch(searchUrl, {
-                headers: {
-                    'Authorization': `Bearer ${this.authToken}`
-                }
-            });
-
-            if (!response.ok) {
-                // If we get a 404, the folder might not exist
-                if (response.status === 404) {
-                    console.log('Folder not found (404), forcing recreation...');
-                    throw new Error('Folder not found');
-                }
-                throw new Error(`List failed: ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log("Remote drafts listed:", data.files.length);
-            return data.files;
-
-        } catch (error) {
-            console.error("Error listing remote drafts:", error);
-            throw error;
-        }
-    }
-
-    async downloadDraft(fileId) {
+    // Download file helper
+    async downloadFile(fileId) {
         try {
             const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
                 headers: {
@@ -347,52 +344,10 @@ class DriveService {
             }
 
             const text = await response.text();
-            const metadata = JSON.parse(text);
-            console.log("Draft downloaded:", fileId);
-            return metadata;
+            return JSON.parse(text);
 
         } catch (error) {
-            console.error("Error downloading draft:", error);
-            throw error;
-        }
-    }
-
-    async getImageBlob(fileId) {
-        try {
-            const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-                headers: {
-                    'Authorization': `Bearer ${this.authToken}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`Image download failed: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-            console.log("Image blob downloaded:", fileId);
-            return blob;
-
-        } catch (error) {
-            console.error("Error downloading image:", error);
-            throw error;
-        }
-    }
-
-    // Delete Draft Function
-    async deleteDraft(jsonFileId, imageFileId = null) {
-        try {
-            // Delete JSON file
-            await this.deleteFile(jsonFileId);
-            
-            // Delete associated image if exists
-            if (imageFileId) {
-                await this.deleteFile(imageFileId);
-            }
-
-            console.log("Draft deleted successfully");
-        } catch (error) {
-            console.error("Error deleting draft:", error);
+            console.error('Error downloading file:', error);
             throw error;
         }
     }
@@ -473,4 +428,4 @@ class DriveService {
 }
 
 // Export the service instance
-export const driveService = new DriveService(); 
+export const driveService = new DriveService();
