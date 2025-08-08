@@ -446,6 +446,17 @@
         if (request.action === 'toggleUI') {
             toggleContainer();
             sendResponse({ success: true });
+        } else if (request.action === 'remoteUpdate') {
+            // Handle remote update notification
+            console.log('Remote update detected, refreshing data...');
+            // Show notification
+            showNotification('Remote changes detected', 'Your saved messages have been updated from another device.', 'info');
+            // Reload saved messages
+            loadSavedMessages();
+            // Update sync info
+            updateSyncInfo();
+            // Send response if needed
+            if (sendResponse) sendResponse({ success: true });
         }
         return true;
     });

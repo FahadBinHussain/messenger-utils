@@ -461,6 +461,62 @@ class DriveService {
             return null;
         }
     }
+    
+    // Get file metadata without downloading content (for efficient change detection)
+    async getFileMetadata(fileId) {
+        try {
+            const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,modifiedTime,size`, {
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    await this.clearAuthToken();
+                }
+                throw new Error(`Metadata fetch failed: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error getting file metadata:', error);
+            throw error;
+        }
+    }
+    
+    // Get sync file metadata for quick change detection
+    async getSyncFileMetadata() {
+        try {
+            const folderId = await this.getAppFolderId();
+            
+            // Search for sync file with minimal fields
+            const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name='messenger_sync.json' and trashed=false&fields=files(id,modifiedTime)`;
+            
+            const response = await fetch(searchUrl, {
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    await this.clearAuthToken();
+                }
+                throw new Error(`Search failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (!data.files || data.files.length === 0) {
+                return null;
+            }
+
+            return data.files[0];
+        } catch (error) {
+            console.error('Error getting sync file metadata:', error);
+            return null;
+        }
+    }
 
     async uploadJsonFile(metadata, fileName, folderId) {
         try {

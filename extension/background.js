@@ -16,20 +16,120 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Setup sync alarm
 function setupSyncAlarm() {
+    // Main sync alarm (less frequent, for full sync)
     chrome.alarms.create('driveSync', {
         delayInMinutes: 1, // First sync after 1 minute
         periodInMinutes: 15 // Then every 15 minutes
     });
-    console.log('Sync alarm created');
+    
+    // Quick check alarm (very frequent, for near real-time sync)
+    chrome.alarms.create('quickSyncCheck', {
+        delayInMinutes: 0.1, // First check after 6 seconds
+        periodInMinutes: 0.25 // Then every 15 seconds
+    });
+    
+    console.log('Sync alarms created');
 }
 
 // Listen for alarm events
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === 'driveSync') {
-        console.log('Sync alarm triggered');
+        console.log('Full sync alarm triggered');
         syncNow();
+    } else if (alarm.name === 'quickSyncCheck') {
+        console.log('Quick sync check alarm triggered');
+        checkForRemoteChanges();
     }
 });
+
+// Track last check time to optimize API calls
+let lastQuickCheckTime = 0;
+let consecutiveNoChanges = 0;
+const MAX_NO_CHANGES = 10; // After this many checks with no changes, we'll slow down
+
+// Function to check for remote changes without full sync
+async function checkForRemoteChanges() {
+    // Skip if full sync is in progress
+    if (syncInProgress) {
+        return;
+    }
+    
+    // Throttle checks if there have been no changes for a while
+    const now = Date.now();
+    if (consecutiveNoChanges > MAX_NO_CHANGES) {
+        // If we've had many checks with no changes, only check every minute
+        if (now - lastQuickCheckTime < 60000) {
+            return;
+        }
+    }
+    
+    lastQuickCheckTime = now;
+    
+    try {
+        // Fast check if user is authenticated using cached token
+        if (!driveService.authToken) {
+            return;
+        }
+
+        // Get local data timestamp (use cached value if possible)
+        let localTime = 0;
+        try {
+            const localData = await chrome.storage.local.get(['lastSyncTime']);
+            localTime = localData.lastSyncTime || 0;
+        } catch (e) {
+            // If we can't get local time, assume we need to check
+        }
+        
+        // Use the optimized method to get sync file metadata
+        const remoteFile = await driveService.getSyncFileMetadata();
+        
+        if (!remoteFile) {
+            consecutiveNoChanges++;
+            return;
+        }
+        
+        // Get the modified time of the remote file
+        const remoteModifiedTime = new Date(remoteFile.modifiedTime).getTime();
+        
+        // If remote file is newer than our last sync
+        if (remoteModifiedTime > localTime) {
+            console.log('Remote changes detected, updating local data');
+            
+            // Set sync in progress flag to prevent concurrent syncs
+            syncInProgress = true;
+            
+            // Now download the full file content
+            const remoteData = await driveService.downloadLatestSync();
+            
+            if (remoteData) {
+                // Update local data from remote
+                await chrome.storage.local.set(remoteData);
+                
+                // Update last sync time
+                await chrome.storage.local.set({ lastSyncTime: now });
+                
+                // Notify all open tabs about the update
+                const tabs = await chrome.tabs.query({});
+                for (const tab of tabs) {
+                    try {
+                        await chrome.tabs.sendMessage(tab.id, { action: 'remoteUpdate' });
+                    } catch (error) {
+                        // Ignore errors for tabs that don't have our content script
+                    }
+                }
+                
+                console.log('Local data updated from remote');
+                consecutiveNoChanges = 0; // Reset counter since we found changes
+            }
+        } else {
+            consecutiveNoChanges++;
+        }
+    } catch (error) {
+        console.error('Quick sync check failed:', error);
+    } finally {
+        syncInProgress = false;
+    }
+}
 
 // Core sync function
 async function syncNow() {
