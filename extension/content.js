@@ -504,6 +504,12 @@
         if (existingAuthButton) {
             existingAuthButton.remove();
         }
+        
+        // Clear any existing progress bar
+        const existingProgressBar = syncStatusSection.querySelector('.sync-progress-container');
+        if (existingProgressBar) {
+            existingProgressBar.remove();
+        }
 
         // Update authentication status
         if (statusData.authenticated) {
@@ -535,6 +541,43 @@
 
         if (statusData.syncInProgress) {
             infoText += ' (Sync in progress...)';
+            
+            // Add progress bar for sync in progress
+            const progressContainer = document.createElement('div');
+            progressContainer.className = 'sync-progress-container';
+            progressContainer.dataset.savedMessageUiElement = 'true';
+            
+            const progressBar = document.createElement('div');
+            progressBar.className = 'sync-progress-bar';
+            progressBar.dataset.savedMessageUiElement = 'true';
+            
+            // Animate the progress bar
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                // Slow down as we approach 90% to simulate waiting for server
+                if (progress < 90) {
+                    progress += (90 - progress) / 10;
+                }
+                progressBar.style.width = `${progress}%`;
+                
+                // Check if sync is still in progress
+                chrome.runtime.sendMessage({ action: 'getSyncStatus' }, (response) => {
+                    if (response && response.success && !response.syncInProgress) {
+                        // Sync completed, fill the bar and remove it
+                        clearInterval(progressInterval);
+                        progressBar.style.width = '100%';
+                        setTimeout(() => {
+                            if (progressContainer.parentNode) {
+                                progressContainer.parentNode.removeChild(progressContainer);
+                            }
+                            updateSyncInfo(response);
+                        }, 500);
+                    }
+                });
+            }, 300);
+            
+            progressContainer.appendChild(progressBar);
+            syncStatusSection.appendChild(progressContainer);
         }
 
         syncInfoText.textContent = infoText;
@@ -636,6 +679,14 @@
             syncStatusText.className = 'status';
         }
         
+        // Update sync info to show progress bar
+        const statusData = {
+            authenticated: true,  // Assume authenticated since we're syncing
+            syncInProgress: true,
+            lastSyncTime: Date.now()
+        };
+        updateSyncInfo(statusData);
+        
         try {
             const response = await new Promise((resolve, reject) => {
                 chrome.runtime.sendMessage({ action: 'sync' }, (response) => {
@@ -661,6 +712,8 @@
                     syncStatusText.textContent = response ? response.message : 'Sync failed. Please try again.';
                     syncStatusText.className = 'status error';
                 }
+                // Update sync info to remove progress bar
+                updateSyncInfo();
             }
         } catch (error) {
             if (syncStatusText) {
@@ -668,6 +721,8 @@
                 syncStatusText.className = 'status error';
             }
             console.error('Error syncing with cloud:', error);
+            // Update sync info to remove progress bar
+            updateSyncInfo();
         }
     }
 
