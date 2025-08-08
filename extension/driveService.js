@@ -227,15 +227,204 @@ class DriveService {
     async uploadSync(data) {
         try {
             const folderId = await this.getAppFolderId();
-            const timestamp = Date.now();
-
-            // Upload data as JSON file
+            
+            // Use consistent filename instead of timestamp
             const jsonFileName = 'messenger_sync.json';
-            await this.uploadJsonFile(data, jsonFileName, folderId);
+            await this.uploadOrUpdateJsonFile(data, jsonFileName, folderId);
 
-            console.log('Sync data uploaded successfully');
+            console.log('Sync data updated successfully');
         } catch (error) {
             console.error('Error uploading sync:', error);
+            throw error;
+        }
+    }
+
+    async uploadOrUpdateJsonFile(data, fileName, folderId) {
+        try {
+            // First, search for existing file
+            const existingFileId = await this.findFileByName(fileName, folderId);
+            
+            const fileContent = JSON.stringify(data, null, 2);
+            const metadata = {
+                name: fileName,
+                mimeType: 'application/json'
+            };
+
+            if (existingFileId) {
+                // Update existing file
+                console.log('Updating existing file:', existingFileId);
+                return await this.updateFile(existingFileId, fileContent);
+            } else {
+                // Create new file
+                console.log('Creating new file:', fileName);
+                metadata.parents = [folderId];
+                return await this.createFile(metadata, fileContent);
+            }
+        } catch (error) {
+            console.error('Error uploading/updating JSON:', error);
+            throw error;
+        }
+    }
+
+    async findFileByName(fileName, folderId) {
+        try {
+            const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name='${fileName}' and trashed=false`;
+            
+            const response = await fetch(searchUrl, {
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Search failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.files && data.files.length > 0) {
+                return data.files[0].id;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error finding file:', error);
+            return null;
+        }
+    }
+
+    async createFile(metadata, content) {
+        const boundary = 'boundary';
+        const multipartBody = this.createMultipartBody(metadata, content);
+
+        const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.authToken}`,
+                'Content-Type': `multipart/related; boundary=${boundary}`
+            },
+            body: multipartBody
+        });
+
+        if (!response.ok) {
+            throw new Error(`File creation failed: ${response.status}`);
+        }
+
+        const file = await response.json();
+        console.log('File created:', file.id);
+        return file.id;
+    }
+
+    async updateFile(fileId, content) {
+        const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${this.authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: content
+        });
+
+        if (!response.ok) {
+            throw new Error(`File update failed: ${response.status}`);
+        }
+
+        const file = await response.json();
+        console.log('File updated:', file.id);
+        return file.id;
+    }
+
+    // Helper method to create multipart body (simplified)
+    createMultipartBody(metadata, content) {
+        const boundary = 'boundary';
+        const delimiter = `--${boundary}\r\n`;
+        const closeDelimiter = `\r\n--${boundary}--`;
+
+        let requestBody = '';
+        
+        // Metadata part
+        requestBody += delimiter;
+        requestBody += 'Content-Type: application/json; charset=UTF-8\r\n\r\n';
+        requestBody += JSON.stringify(metadata) + '\r\n';
+        
+        // File content part
+        requestBody += delimiter;
+        requestBody += 'Content-Type: application/json\r\n\r\n';
+        requestBody += content;
+        requestBody += closeDelimiter;
+
+        return requestBody;
+    }
+
+    // Update image upload to also use consistent naming if needed
+    async uploadImageFile(imageFile, folderId) {
+        try {
+            const fileExtension = imageFile.name.split('.').pop();
+            const baseName = imageFile.name.replace(/\.[^/.]+$/, ""); // Remove extension
+            const fileName = `${baseName}.${fileExtension}`;
+            
+            // Search for existing image with same base name
+            const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name='${fileName}' and trashed=false`;
+            
+            const searchResponse = await fetch(searchUrl, {
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                }
+            });
+
+            const searchData = await searchResponse.json();
+            
+            if (searchData.files && searchData.files.length > 0) {
+                // Update existing image
+                const fileId = searchData.files[0].id;
+                console.log('Updating existing image:', fileId);
+                
+                const formData = new FormData();
+                formData.append('image', imageFile);
+                
+                const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${this.authToken}`,
+                        'Content-Type': imageFile.type
+                    },
+                    body: imageFile
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Image update failed: ${response.status}`);
+                }
+
+                const file = await response.json();
+                console.log('Image updated:', file.id);
+                return file.id;
+            } else {
+                // Create new image file
+                const metadata = {
+                    name: fileName,
+                    parents: [folderId]
+                };
+
+                const formData = new FormData();
+                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                formData.append('file', imageFile);
+
+                const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.authToken}`
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Image upload failed: ${response.status}`);
+                }
+
+                const file = await response.json();
+                console.log('Image uploaded:', file.id);
+                return file.id;
+            }
+        } catch (error) {
+            console.error("Error uploading/updating image:", error);
             throw error;
         }
     }
@@ -270,40 +459,6 @@ class DriveService {
         } catch (error) {
             console.error('Error downloading sync:', error);
             return null;
-        }
-    }
-
-    async uploadImageFile(imageFile, folderId) {
-        try {
-            const fileName = `image-${Date.now()}.${imageFile.name.split('.').pop()}`;
-            
-            const metadata = {
-                name: fileName,
-                parents: [folderId]
-            };
-
-            const multipartBody = this.createMultipartBody(metadata, imageFile);
-
-            const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.authToken}`,
-                    'Content-Type': 'multipart/related; boundary=boundary'
-                },
-                body: multipartBody
-            });
-
-            if (!response.ok) {
-                throw new Error(`Image upload failed: ${response.status}`);
-            }
-
-            const file = await response.json();
-            console.log("Image uploaded:", file.id);
-            return file.id;
-
-        } catch (error) {
-            console.error("Error uploading image:", error);
-            throw error;
         }
     }
 
