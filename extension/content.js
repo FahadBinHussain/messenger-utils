@@ -304,6 +304,12 @@
         importButton.dataset.savedMessageUiElement = 'true';
         importButton.onclick = triggerImportDialog;
         
+        // Add sync button
+        const syncButton = document.createElement('button');
+        syncButton.textContent = 'Sync Now';
+        syncButton.dataset.savedMessageUiElement = 'true';
+        syncButton.onclick = syncWithCloud;
+        
         const debugButton = document.createElement('button');
         debugButton.textContent = 'Debug';
         debugButton.title = 'Find input field selectors';
@@ -320,6 +326,7 @@
         
         menu.appendChild(exportButton);
         menu.appendChild(importButton);
+        menu.appendChild(syncButton);
         menu.appendChild(debugToggleButton);
         
         if (config.debugMode) {
@@ -334,6 +341,24 @@
         fileInput.dataset.savedMessageUiElement = 'true';
         fileInput.onchange = importSavedMessages;
         document.body.appendChild(fileInput);
+        
+        // Create sync status section
+        const syncStatusSection = document.createElement('div');
+        syncStatusSection.className = 'saved-messages-sync-status';
+        syncStatusSection.dataset.savedMessageUiElement = 'true';
+        
+        const syncStatusText = document.createElement('div');
+        syncStatusText.id = 'syncStatus';
+        syncStatusText.className = 'status';
+        syncStatusText.dataset.savedMessageUiElement = 'true';
+        
+        const syncInfoText = document.createElement('div');
+        syncInfoText.id = 'syncInfo';
+        syncInfoText.className = 'sync-info';
+        syncInfoText.dataset.savedMessageUiElement = 'true';
+        
+        syncStatusSection.appendChild(syncStatusText);
+        syncStatusSection.appendChild(syncInfoText);
         
         // Create body
         const body = document.createElement('div');
@@ -363,6 +388,7 @@
         // Append all elements
         container.appendChild(header);
         container.appendChild(menu);
+        container.appendChild(syncStatusSection);
         container.appendChild(body);
         container.appendChild(inputArea);
         document.body.appendChild(container);
@@ -415,12 +441,234 @@
         }
     });
     
+    // Listen for messages from background script
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === 'toggleUI') {
+            toggleContainer();
+            sendResponse({ success: true });
+        }
+        return true;
+    });
+    
     // Register in Tampermonkey menu
     // GM_registerMenuCommand("Toggle Saved Messages", toggleContainer); // TODO: Replace with chrome.storage
     // GM_registerMenuCommand("Export All Saved Messages", exportSavedMessages); // TODO: Replace with chrome.storage
     // GM_registerMenuCommand("Toggle Debug Mode", toggleDebugMode); // TODO: Replace with chrome.storage
     if (config.debugMode) {
         // GM_registerMenuCommand("Debug Input Fields", debugInputFields); // TODO: Replace with chrome.storage
+    }
+    
+    // Check sync status when UI is opened
+    function checkSyncStatus() {
+        try {
+            chrome.runtime.sendMessage({ action: 'getSyncStatus' }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error('Failed to check sync status:', chrome.runtime.lastError);
+                    return;
+                }
+                
+                if (response && response.success) {
+                    updateSyncInfo(response);
+                }
+            });
+        } catch (error) {
+            console.error('Failed to check sync status:', error);
+        }
+    }
+    
+    // Update sync information display
+    function updateSyncInfo(statusData = null) {
+        const syncStatusText = document.getElementById('syncStatus');
+        const syncInfoText = document.getElementById('syncInfo');
+        const syncStatusSection = document.querySelector('.saved-messages-sync-status');
+        
+        if (!syncStatusText || !syncInfoText || !syncStatusSection) return;
+        
+        if (!statusData) {
+            // Get status from background
+            chrome.runtime.sendMessage({ action: 'getSyncStatus' }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error('Failed to get sync status:', chrome.runtime.lastError);
+                    return;
+                }
+                
+                if (response && response.success) {
+                    updateSyncInfo(response);
+                }
+            });
+            return;
+        }
+
+        // Clear any existing auth button
+        const existingAuthButton = syncStatusSection.querySelector('.auth-button');
+        if (existingAuthButton) {
+            existingAuthButton.remove();
+        }
+
+        // Update authentication status
+        if (statusData.authenticated) {
+            syncStatusText.textContent = 'Connected to Google Drive';
+            syncStatusText.className = 'status success';
+        } else {
+            syncStatusText.textContent = 'Not connected to Google Drive';
+            syncStatusText.className = 'status warning';
+            
+            // Add auth button if not authenticated
+            const authButton = document.createElement('button');
+            authButton.className = 'auth-button';
+            authButton.textContent = 'Sign in with Google';
+            authButton.dataset.savedMessageUiElement = 'true';
+            authButton.onclick = authenticateWithGoogle;
+            syncStatusSection.appendChild(authButton);
+        }
+        
+        // Update sync info
+        let infoText = '';
+        
+        if (statusData.lastSyncTime) {
+            const lastSync = new Date(statusData.lastSyncTime);
+            const timeAgo = getTimeAgo(lastSync);
+            infoText = `Last sync: ${timeAgo}`;
+        } else {
+            infoText = 'No sync history';
+        }
+
+        if (statusData.syncInProgress) {
+            infoText += ' (Sync in progress...)';
+        }
+
+        syncInfoText.textContent = infoText;
+    }
+    
+    // Helper function to get time ago
+    function getTimeAgo(date) {
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} minutes ago`;
+        if (diffHours < 24) return `${diffHours} hours ago`;
+        if (diffDays < 7) return `${diffDays} days ago`;
+        return date.toLocaleDateString();
+    }
+    
+    // Function to authenticate with Google
+    async function authenticateWithGoogle() {
+        const syncStatusText = document.getElementById('syncStatus');
+        const authButton = document.querySelector('.auth-button');
+        
+        if (syncStatusText) {
+            syncStatusText.textContent = 'Signing in...';
+            syncStatusText.className = 'status';
+        }
+        
+        if (authButton) {
+            authButton.disabled = true;
+            authButton.textContent = 'Signing in...';
+        }
+        
+        try {
+            // Check current status first
+            const statusResponse = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({ action: 'getSyncStatus' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        resolve(response);
+                    }
+                });
+            });
+            
+            if (statusResponse && statusResponse.success && statusResponse.authenticated) {
+                if (syncStatusText) {
+                    syncStatusText.textContent = 'Already authenticated!';
+                    syncStatusText.className = 'status success';
+                }
+                updateSyncInfo(statusResponse);
+                return;
+            }
+            
+            // Trigger authentication by requesting a sync
+            const response = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({ action: 'sync' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        resolve(response);
+                    }
+                });
+            });
+            
+            if (response && response.success) {
+                if (syncStatusText) {
+                    syncStatusText.textContent = 'Authentication successful!';
+                    syncStatusText.className = 'status success';
+                }
+                updateSyncInfo();
+            } else {
+                if (syncStatusText) {
+                    syncStatusText.textContent = response ? response.message : 'Authentication failed. Please try again.';
+                    syncStatusText.className = 'status error';
+                }
+            }
+        } catch (error) {
+            if (syncStatusText) {
+                syncStatusText.textContent = 'Authentication failed: ' + error.message;
+                syncStatusText.className = 'status error';
+            }
+            console.error('Error authenticating with Google:', error);
+        } finally {
+            if (authButton) {
+                authButton.disabled = false;
+                authButton.textContent = 'Sign in with Google';
+            }
+        }
+    }
+    
+    // Function to sync with cloud
+    async function syncWithCloud() {
+        const syncStatusText = document.getElementById('syncStatus');
+        if (syncStatusText) {
+            syncStatusText.textContent = 'Starting sync...';
+            syncStatusText.className = 'status';
+        }
+        
+        try {
+            const response = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({ action: 'sync' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        resolve(response);
+                    }
+                });
+            });
+            
+            if (response && response.success) {
+                if (syncStatusText) {
+                    syncStatusText.textContent = response.message || 'Synced successfully!';
+                    syncStatusText.className = 'status success';
+                }
+                // Refresh the messages list
+                loadSavedMessages();
+                // Update sync info
+                updateSyncInfo();
+            } else {
+                if (syncStatusText) {
+                    syncStatusText.textContent = response ? response.message : 'Sync failed. Please try again.';
+                    syncStatusText.className = 'status error';
+                }
+            }
+        } catch (error) {
+            if (syncStatusText) {
+                syncStatusText.textContent = 'Sync failed: ' + error.message;
+                syncStatusText.className = 'status error';
+            }
+            console.error('Error syncing with cloud:', error);
+        }
     }
 
     // Load saved messages when URL changes
@@ -438,6 +686,8 @@
         if (isContainerVisible) {
             ui.container.classList.remove('hidden');
             loadSavedMessages();
+            // Check sync status when panel is opened
+            checkSyncStatus();
             // Focus the textarea when panel is opened
             setTimeout(() => ui.textarea.focus(), 100);
         } else {
@@ -1214,6 +1464,19 @@
                 // Sync deletion to Google Drive if the message was synced
                 if (deletedMessage && deletedMessage.remoteFileId) {
                     syncDeletionToCloud(deletedMessage.remoteFileId, deletedMessage.remoteImageId);
+                }
+            });
+        });
+    }
+    
+    // Helper function to send messages to background script
+    function sendMessage(message) {
+        return new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(message, (response) => {
+                if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                    resolve(response);
                 }
             });
         });

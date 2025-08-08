@@ -112,11 +112,35 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             handleGetSyncStatus(sendResponse);
             return true;
 
+        case 'toggleUI':
+            handleToggleUI(sender.tab.id, sendResponse);
+            return true;
+
         default:
             sendResponse({ success: true });
             return true;
     }
 });
+
+// Handle browser action click
+chrome.action.onClicked.addListener((tab) => {
+    // Only toggle UI on messenger.com or facebook.com/messages
+    if (tab.url.includes('messenger.com') || 
+        (tab.url.includes('facebook.com') && tab.url.includes('/messages/'))) {
+        handleToggleUI(tab.id);
+    }
+});
+
+// Function to toggle UI visibility
+async function handleToggleUI(tabId, sendResponse = null) {
+    try {
+        await chrome.tabs.sendMessage(tabId, { action: 'toggleUI' });
+        if (sendResponse) sendResponse({ success: true });
+    } catch (error) {
+        console.error('Error toggling UI:', error);
+        if (sendResponse) sendResponse({ success: false, message: error.message });
+    }
+}
 
 // Handle manual sync request
 async function handleManualSync(sendResponse) {
