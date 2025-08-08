@@ -897,6 +897,9 @@
                 
                 // Sync to Google Drive if authenticated
                 syncDraftToCloud(textContent, imageFiles.length > 0 ? imageFiles[0] : null);
+                
+                // Perform a full sync to ensure everything is up to date
+                syncWithCloud();
             });
         });
     }
@@ -1465,6 +1468,9 @@
                 if (deletedMessage && deletedMessage.remoteFileId) {
                     syncDeletionToCloud(deletedMessage.remoteFileId, deletedMessage.remoteImageId);
                 }
+                
+                // Perform a full sync to ensure everything is up to date
+                syncWithCloud();
             });
         });
     }
