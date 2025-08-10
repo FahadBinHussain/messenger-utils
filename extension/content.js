@@ -20,7 +20,381 @@
 
     // Save debug mode setting
     function saveConfig() {
-        chrome.storage.local.set({ config });
+        chrome.storage.local.set({ config: config });
+    }
+
+    // Add complete CSS with theme system
+    const completeCSS = `
+    :root {
+        /* Light theme variables (default) */
+        --bg-primary: #ffffff;
+        --bg-secondary: #f0f2f5;
+        --bg-tertiary: #e4e6ea;
+        --text-primary: #1c1e21;
+        --text-secondary: #65676b;
+        --border: #dddfe2;
+        --accent: #0084ff;
+        --accent-hover: #0066cc;
+        --success: #42b883;
+        --danger: #e74c3c;
+    }
+
+    [data-theme="dark"] {
+        /* Dark theme variables */
+        --bg-primary: #18191a;
+        --bg-secondary: #242526;
+        --bg-tertiary: #3a3b3c;
+        --text-primary: #e4e6ea;
+        --text-secondary: #b0b3b8;
+        --border: #3e4042;
+        --accent: #0084ff;
+        --accent-hover: #1877f2;
+        --success: #42b883;
+        --danger: #e74c3c;
+    }
+
+    .saved-messages-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 350px;
+        height: 500px;
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        font-family: system-ui, -apple-system, sans-serif;
+        color: var(--text-primary);
+        resize: both;
+        overflow: hidden;
+        min-width: 300px;
+        min-height: 400px;
+        max-width: 600px;
+        max-height: 700px;
+        transition: all 0.3s ease;
+    }
+
+    .saved-messages-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 60px;
+        height: 60px;
+        background-color: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 20px;
+        font-weight: bold;
+        box-shadow: 0 4px 20px rgba(0, 132, 255, 0.3);
+        z-index: 9999;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .saved-messages-toggle:hover {
+        background-color: var(--accent-hover);
+        transform: scale(1.05);
+    }
+
+    .saved-messages-header {
+        padding: 12px;
+        background-color: var(--accent);
+        color: white;
+        font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: move;
+    }
+
+    .saved-messages-close {
+        cursor: pointer;
+        font-size: 18px;
+    }
+
+    .saved-messages-body {
+        padding: 12px;
+        overflow-y: auto;
+        flex-grow: 1;
+        background-color: var(--bg-primary);
+    }
+
+    .saved-messages-item {
+        margin-bottom: 10px;
+        padding: 8px;
+        background-color: var(--bg-secondary);
+        border-radius: 8px;
+        position: relative;
+        border: 1px solid var(--border);
+    }
+
+    .saved-messages-timestamp {
+        font-size: 10px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    .saved-messages-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 5px;
+    }
+
+    .saved-messages-actions button {
+        padding: 4px 8px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background-color 0.2s ease;
+    }
+
+    .saved-message-use {
+        background-color: var(--accent);
+        color: white;
+    }
+
+    .saved-message-use:hover {
+        background-color: var(--accent-hover);
+    }
+
+    .saved-message-copy {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+    .saved-message-copy:hover {
+        background-color: var(--border);
+    }
+
+    .saved-message-delete {
+        background-color: var(--danger);
+        color: white;
+    }
+
+    .saved-message-delete:hover {
+        opacity: 0.8;
+    }
+
+    .saved-messages-input {
+        padding: 12px;
+        display: flex;
+        gap: 8px;
+        border-top: 1px solid var(--border);
+        background-color: var(--bg-primary);
+    }
+
+    .saved-messages-input textarea,
+    .message-input-div {
+        flex-grow: 1;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 60px;
+        max-height: 150px;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+    }
+
+    .saved-messages-input button {
+        background-color: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: bold;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s ease;
+    }
+
+    .saved-messages-input button:hover {
+        background-color: var(--accent-hover);
+    }
+
+    .keyboard-shortcut {
+        display: inline-block;
+        margin-left: 8px;
+        background-color: var(--bg-secondary);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 10px;
+        color: var(--text-secondary);
+    }
+
+    .saved-messages-menu {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 12px;
+        background-color: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .saved-messages-menu button {
+        border: none;
+        background-color: transparent;
+        color: var(--text-primary);
+        cursor: pointer;
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background-color 0.2s ease;
+    }
+
+    .saved-messages-menu button:hover {
+        background-color: var(--bg-tertiary);
+    }
+
+    .saved-messages-sync-status {
+        padding: 8px 12px;
+        background-color: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+        font-size: 12px;
+    }
+
+    .status {
+        color: var(--text-secondary);
+    }
+
+    .status.success {
+        color: var(--success);
+    }
+
+    .status.error {
+        color: var(--danger);
+    }
+
+    .status.warning {
+        color: #ff9800;
+    }
+
+    .sync-info {
+        margin-top: 4px;
+        font-size: 11px;
+        color: var(--text-secondary);
+        line-height: 1.3;
+    }
+
+    .sync-progress-container {
+        margin-top: 8px;
+        height: 4px;
+        background-color: var(--bg-tertiary);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .sync-progress-bar {
+        height: 100%;
+        background-color: var(--accent);
+        transition: width 0.3s ease;
+        border-radius: 2px;
+    }
+
+    .auth-button {
+        background-color: #34a853;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        margin-top: 4px;
+        transition: background-color 0.2s ease;
+    }
+
+    .auth-button:hover {
+        background-color: #2d8a46;
+    }
+
+    .auth-button:disabled {
+        background-color: var(--bg-tertiary);
+        cursor: not-allowed;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    .file-input-hidden {
+        display: none;
+    }
+
+    .saved-messages-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 12px 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 10001;
+        border: 1px solid var(--border);
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+    }
+
+    .saved-messages-notification.visible {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    `;
+
+    // Add complete CSS to document
+    const style = document.createElement('style');
+    style.textContent = completeCSS;
+    document.head.appendChild(style);
+
+    // Theme detection and management
+    function detectSystemTheme() {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function applyTheme(theme) {
+        const container = document.querySelector('.saved-messages-container');
+        const toggleButton = document.querySelector('.saved-messages-toggle');
+
+        if (container) {
+            container.setAttribute('data-theme', theme);
+        }
+        if (toggleButton) {
+            toggleButton.setAttribute('data-theme', theme);
+        }
+
+        // Update config
+        config.theme = theme;
+        saveConfig();
+    }
+
+    function initializeTheme() {
+        const systemTheme = detectSystemTheme();
+        const savedTheme = config.theme || systemTheme;
+        applyTheme(savedTheme);
+
+        // Listen for system theme changes
+        if (window.matchMedia) {
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            mediaQuery.addListener((e) => {
+                if (!config.manualTheme) {
+                    applyTheme(e.matches ? 'dark' : 'light');
+                }
+            });
+        }
     }
 
     // Add custom styles
@@ -177,57 +551,7 @@
     //     }
 
     //     .saved-messages-category {
-    //         margin-bottom: 12px;
-    //         padding-bottom: 8px;
-    //         border-bottom: 1px solid #e4e6eb;
-    //     }
 
-    //     .saved-messages-category-title {
-    //         font-weight: bold;
-    //         margin-bottom: 8px;
-    //     }
-
-    //     .hidden {
-    //         display: none;
-    //     }
-
-    //     .keyboard-shortcut {
-    //         display: inline-block;
-    //         margin-left: 8px;
-    //         padding: 2px 5px;
-    //         background-color: #f0f2f5;
-    //         border-radius: 4px;
-    //         font-size: 10px;
-    //         color: #65676B;
-    //     }
-
-    //     .saved-messages-menu {
-    //         display: flex;
-    //         justify-content: space-between;
-    //         padding: 8px 12px;
-    //         background-color: #f0f2f5;
-    //         border-bottom: 1px solid #e4e6eb;
-    //     }
-
-    //     .saved-messages-menu button {
-    //         border: none;
-    //         background-color: transparent;
-    //         color: #0084ff;
-    //         cursor: pointer;
-    //         font-size: 12px;
-    //         padding: 4px 8px;
-    //     }
-
-    //     .saved-messages-menu button:hover {
-    //         text-decoration: underline;
-    //     }
-
-    //     .file-input-hidden {
-    //         display: none;
-    //     }
-
-    //     .saved-messages-notification {
-    //         position: fixed;
     //         bottom: 20px;
     //         left: 50%;
     //         transform: translateX(-50%);
@@ -310,6 +634,13 @@
         syncButton.dataset.savedMessageUiElement = 'true';
         syncButton.onclick = syncWithCloud;
 
+        // Add theme toggle button
+        const themeButton = document.createElement('button');
+        themeButton.textContent = '🌙';
+        themeButton.title = 'Toggle theme';
+        themeButton.dataset.savedMessageUiElement = 'true';
+        themeButton.onclick = toggleTheme;
+
         const debugButton = document.createElement('button');
         debugButton.textContent = 'Debug';
         debugButton.title = 'Find input field selectors';
@@ -327,6 +658,7 @@
         menu.appendChild(exportButton);
         menu.appendChild(importButton);
         menu.appendChild(syncButton);
+        menu.appendChild(themeButton);
         menu.appendChild(debugToggleButton);
 
         if (config.debugMode) {
@@ -421,6 +753,9 @@
 
         // Load saved positions
         loadPositions();
+
+        // Initialize theme
+        initializeTheme();
 
         return {
             container,
@@ -1994,6 +2329,21 @@
 
         // Start observing the target node for configured mutations
         observer.observe(document.body, config);
+    }
+
+    // Theme toggle function
+    function toggleTheme() {
+        const currentTheme = config.theme || detectSystemTheme();
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+        config.manualTheme = true; // Mark as manually set
+        applyTheme(newTheme);
+
+        // Update theme button
+        const themeButton = document.querySelector('button[title="Toggle theme"]');
+        if (themeButton) {
+            themeButton.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        }
     }
 
     // Start after page load
