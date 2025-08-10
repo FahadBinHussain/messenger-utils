@@ -4,190 +4,68 @@
 import { driveService } from './driveService.js';
 
 let syncInProgress = false;
+let periodicSyncTimer = null;
 
-// Initialize sync alarm on extension startup
+// Initialize on extension startup
 chrome.runtime.onStartup.addListener(() => {
-    setupSyncAlarm();
+    console.log('Extension started');
+    startPeriodicSync();
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-    setupSyncAlarm();
+    console.log('Extension installed/updated');
+    startPeriodicSync();
 });
 
-// Setup sync alarm
-function setupSyncAlarm() {
-    // Main sync alarm (less frequent, for full sync)
-    chrome.alarms.create('driveSync', {
-        delayInMinutes: 1, // First sync after 1 minute
-        periodInMinutes: 15 // Then every 15 minutes
-    });
-    
-    // Quick check alarm (very frequent, for near real-time sync)
-    chrome.alarms.create('quickSyncCheck', {
-        delayInMinutes: 0.1, // First check after 6 seconds
-        periodInMinutes: 0.25 // Then every 15 seconds
-    });
-    
-    console.log('Sync alarms created');
-}
+// Start periodic sync check every 10 seconds
+function startPeriodicSync() {
+    // Clear any existing timer
+    if (periodicSyncTimer) {
+        clearInterval(periodicSyncTimer);
+    }
 
-// Listen for alarm events
-chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'driveSync') {
-        console.log('Full sync alarm triggered');
-        syncNow();
-    } else if (alarm.name === 'quickSyncCheck') {
-        console.log('Quick sync check alarm triggered');
+    // Set up 10-second interval
+    periodicSyncTimer = setInterval(() => {
         checkForRemoteChanges();
-    }
-});
+    }, 5000); // 5 seconds
 
-// Track last check time to optimize API calls
-let lastQuickCheckTime = 0;
-let consecutiveNoChanges = 0;
-const MAX_NO_CHANGES = 10; // After this many checks with no changes, we'll slow down
-
-// Function to check for remote changes without full sync
-async function checkForRemoteChanges() {
-    // Skip if full sync is in progress
-    if (syncInProgress) {
-        return;
-    }
-    
-    // Throttle checks if there have been no changes for a while
-    const now = Date.now();
-    if (consecutiveNoChanges > MAX_NO_CHANGES) {
-        // If we've had many checks with no changes, only check every minute
-        if (now - lastQuickCheckTime < 60000) {
-            return;
-        }
-    }
-    
-    lastQuickCheckTime = now;
-    
-    try {
-        // Fast check if user is authenticated using cached token
-        if (!driveService.authToken) {
-            return;
-        }
-
-        // Get local data timestamp (use cached value if possible)
-        let localTime = 0;
-        try {
-            const localData = await chrome.storage.local.get(['lastSyncTime']);
-            localTime = localData.lastSyncTime || 0;
-        } catch (e) {
-            // If we can't get local time, assume we need to check
-        }
-        
-        // Use the optimized method to get sync file metadata
-        const remoteFile = await driveService.getSyncFileMetadata();
-        
-        if (!remoteFile) {
-            consecutiveNoChanges++;
-            return;
-        }
-        
-        // Get the modified time of the remote file
-        const remoteModifiedTime = new Date(remoteFile.modifiedTime).getTime();
-        
-        // If remote file is newer than our last sync
-        if (remoteModifiedTime > localTime) {
-            console.log('Remote changes detected, updating local data');
-            
-            // Set sync in progress flag to prevent concurrent syncs
-            syncInProgress = true;
-            
-            // Now download the full file content
-            const remoteData = await driveService.downloadLatestSync();
-            
-            if (remoteData) {
-                // Update local data from remote
-                await chrome.storage.local.set(remoteData);
-                
-                // Update last sync time
-                await chrome.storage.local.set({ lastSyncTime: now });
-                
-                // Notify all open tabs about the update
-                const tabs = await chrome.tabs.query({});
-                for (const tab of tabs) {
-                    try {
-                        await chrome.tabs.sendMessage(tab.id, { action: 'remoteUpdate' });
-                    } catch (error) {
-                        // Ignore errors for tabs that don't have our content script
-                    }
-                }
-                
-                console.log('Local data updated from remote');
-                consecutiveNoChanges = 0; // Reset counter since we found changes
-            }
-        } else {
-            consecutiveNoChanges++;
-        }
-    } catch (error) {
-        console.error('Quick sync check failed:', error);
-    } finally {
-        syncInProgress = false;
-    }
+    console.log('Periodic sync started (5-second interval)');
 }
 
-// Core sync function
-async function syncNow() {
+// Check for remote changes and sync if needed
+async function checkForRemoteChanges() {
     if (syncInProgress) {
-        console.log('Sync already in progress, skipping');
-        return;
+        return; // Skip if sync already in progress
     }
 
-    syncInProgress = true;
-    console.log('Starting sync process...');
-
     try {
-        // Check if user is authenticated
+        // Only check if authenticated
         const isAuth = await driveService.isAuthenticated();
         if (!isAuth) {
-            console.log('User not authenticated, skipping sync');
             return;
         }
 
-        // Ensure folder exists
-        console.log('Ensuring app folder exists...');
-        await driveService.getAppFolderId();
+        // Get local and remote timestamps
+        const localData = await chrome.storage.local.get(['lastSyncTime']);
+        const localTimestamp = localData.lastSyncTime || 0;
+        const remoteTimestamp = await getRemoteTimestamp();
 
-        // Get local data
-        const localData = await chrome.storage.local.get(null);
-        
-        // Get remote data
-        const remoteData = await driveService.downloadLatestSync();
+        if (remoteTimestamp && remoteTimestamp > localTimestamp) {
+            console.log('Remote changes detected, downloading...');
+            await downloadRemoteData();
 
-        if (remoteData) {
-            // Compare timestamps and use the newer version
-            const localTime = localData.lastSyncTime || 0;
-            const remoteTime = remoteData.lastSyncTime || 0;
-
-            if (remoteTime > localTime) {
-                // Remote is newer, update local
-                await chrome.storage.local.set(remoteData);
-                console.log('Updated local data from remote');
-            } else {
-                // Local is newer or same, update remote
-                await driveService.uploadSync(localData);
-                console.log('Updated remote data from local');
+            // Notify content scripts about update
+            const tabs = await chrome.tabs.query({});
+            for (const tab of tabs) {
+                try {
+                    await chrome.tabs.sendMessage(tab.id, { action: 'remoteUpdate' });
+                } catch (error) {
+                    // Ignore errors for tabs without content script
+                }
             }
-        } else {
-            // No remote data exists, upload local
-            await driveService.uploadSync(localData);
-            console.log('Uploaded initial sync data');
         }
-
-        // Update last sync time
-        await chrome.storage.local.set({ lastSyncTime: Date.now() });
-        console.log('Sync completed successfully');
-
     } catch (error) {
-        console.error('Sync failed:', error);
-        throw error;
-    } finally {
-        syncInProgress = false;
+        console.error('Periodic sync check failed:', error);
     }
 }
 
@@ -197,7 +75,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     switch (request.action) {
         case 'sync':
-            handleManualSync(sendResponse);
+            handleSync(sendResponse);
             return true; // Indicate async response
 
         case 'uploadDraft':
@@ -225,7 +103,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Handle browser action click
 chrome.action.onClicked.addListener((tab) => {
     // Only toggle UI on messenger.com or facebook.com/messages
-    if (tab.url.includes('messenger.com') || 
+    if (tab.url.includes('messenger.com') ||
         (tab.url.includes('facebook.com') && tab.url.includes('/messages/'))) {
         handleToggleUI(tab.id);
     }
@@ -242,60 +120,255 @@ async function handleToggleUI(tabId, sendResponse = null) {
     }
 }
 
-// Handle manual sync request
-async function handleManualSync(sendResponse) {
+// Main sync function - handles both upload and download
+async function handleSync(sendResponse) {
+    if (syncInProgress) {
+        console.log('Sync already in progress');
+        sendResponse({ success: false, message: 'Sync already in progress' });
+        return;
+    }
+
+    syncInProgress = true;
+    console.log('Starting sync...');
+
     try {
-        console.log('Starting manual sync...');
-        
-        // Check if user is authenticated first
+        // Check authentication
         const isAuth = await driveService.isAuthenticated();
         if (!isAuth) {
-            console.log('User not authenticated, starting authentication...');
-            // This will trigger the interactive authentication flow
+            console.log('Not authenticated, starting auth flow...');
             const authSuccess = await driveService.forceAuthentication();
             if (!authSuccess) {
-                sendResponse({ success: false, message: 'Authentication failed. Please try again.' });
-                return;
+                throw new Error('Authentication failed');
             }
         }
-        
-        await syncNow();
-        sendResponse({ success: true, message: 'Sync completed successfully' });
-    } catch (error) {
-        console.error('Manual sync failed:', error);
-        sendResponse({ success: false, message: error.message });
-    }
-}
 
-// Handle draft upload request
-async function handleUploadDraft(draftData, sendResponse) {
-    try {
-        const result = await driveService.uploadDraft(draftData);
-        sendResponse({ success: true, fileIds: result });
-    } catch (error) {
-        console.error('Upload failed:', error);
-        sendResponse({ success: false, message: error.message });
-    }
-}
+        // Ensure app folder exists
+        await driveService.getAppFolderId();
 
-// Handle draft deletion request
-async function handleDeleteDraft(draftId, sendResponse) {
-    try {
-        const localData = await chrome.storage.local.get(['drafts']);
-        const localDrafts = localData.drafts || {};
-        const draft = localDrafts[draftId];
+        // Get local data
+        const localData = await chrome.storage.local.get(null);
+        const localTimestamp = localData.lastSyncTime || 0;
 
-        if (draft && draft.remoteFileId) {
-            await driveService.deleteDraft(draft.remoteFileId, draft.remoteImageId);
+        // Get remote timestamp
+        const remoteTimestamp = await getRemoteTimestamp();
+
+        console.log('Local timestamp:', localTimestamp);
+        console.log('Remote timestamp:', remoteTimestamp);
+
+        if (remoteTimestamp === null) {
+            // No remote data, upload local data
+            console.log('No remote data found, uploading local data...');
+            await uploadLocalData(localData);
+            sendResponse({ success: true, message: 'Initial sync completed' });
+        } else if (remoteTimestamp > localTimestamp) {
+            // Remote is newer, download
+            console.log('Remote data is newer, downloading...');
+            await downloadRemoteData();
+            sendResponse({ success: true, message: 'Downloaded latest data' });
+        } else {
+            // Local is newer or same, upload
+            console.log('Local data is newer or same, uploading...');
+            await uploadLocalData(localData);
+            sendResponse({ success: true, message: 'Uploaded local changes' });
         }
 
-        // Remove from local storage
-        delete localDrafts[draftId];
-        await chrome.storage.local.set({ drafts: localDrafts });
-
-        sendResponse({ success: true });
     } catch (error) {
-        console.error('Delete failed:', error);
+        console.error('Sync failed:', error);
+        sendResponse({ success: false, message: error.message });
+    } finally {
+        syncInProgress = false;
+    }
+}
+
+// Upload local data to Drive
+async function uploadLocalData(localData) {
+    try {
+        const timestamp = Date.now();
+
+        // Upload main sync file
+        await driveService.uploadSync(localData);
+
+        // Update timestamp files
+        await updateRemoteTimestamp(timestamp);
+        await chrome.storage.local.set({ lastSyncTime: timestamp });
+
+        console.log('Upload completed, timestamp:', timestamp);
+    } catch (error) {
+        console.error('Upload failed:', error);
+        throw error;
+    }
+}
+
+// Download remote data from Drive
+async function downloadRemoteData() {
+    try {
+        // Download main sync file
+        const remoteData = await driveService.downloadLatestSync();
+        if (!remoteData) {
+            throw new Error('Failed to download remote data');
+        }
+
+        // Get remote timestamp
+        const remoteTimestamp = await getRemoteTimestamp();
+        if (remoteTimestamp === null) {
+            throw new Error('Failed to get remote timestamp');
+        }
+
+        // Update local storage
+        await chrome.storage.local.clear();
+        await chrome.storage.local.set(remoteData);
+        await chrome.storage.local.set({ lastSyncTime: remoteTimestamp });
+
+        // Notify content scripts
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+            try {
+                await chrome.tabs.sendMessage(tab.id, { action: 'remoteUpdate' });
+            } catch (error) {
+                // Ignore errors for tabs without content script
+            }
+        }
+
+        console.log('Download completed, timestamp:', remoteTimestamp);
+    } catch (error) {
+        console.error('Download failed:', error);
+        throw error;
+    }
+}
+
+// Cache for remote timestamp to reduce API calls
+let timestampCache = { value: null, lastCheck: 0 };
+
+// Get remote timestamp from lastsynctime file
+async function getRemoteTimestamp() {
+    try {
+        // Use cache if less than 2 seconds old
+        const now = Date.now();
+        if (timestampCache.value !== null && (now - timestampCache.lastCheck) < 2000) {
+            return timestampCache.value;
+        }
+
+        const folderId = await driveService.getAppFolderId();
+
+        // Search for lastsynctime file with minimal fields for speed
+        const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name='lastsynctime' and trashed=false&fields=files(id)`;
+
+        const response = await fetch(searchUrl, {
+            headers: {
+                'Authorization': `Bearer ${driveService.authToken}`
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 404 || response.status === 403) {
+                return null; // Quick fail for common errors
+            }
+            throw new Error(`Search failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.files || data.files.length === 0) {
+            timestampCache = { value: null, lastCheck: now };
+            return null;
+        }
+
+        // Download timestamp
+        const fileId = data.files[0].id;
+        const timestampText = await driveService.downloadTextFile(fileId);
+        const timestamp = parseInt(timestampText);
+
+        const result = isNaN(timestamp) ? null : timestamp;
+
+        // Update cache
+        timestampCache = { value: result, lastCheck: now };
+
+        return result;
+    } catch (error) {
+        console.error('Failed to get remote timestamp:', error);
+        return null;
+    }
+}
+
+// Update remote timestamp file
+async function updateRemoteTimestamp(timestamp) {
+    try {
+        const folderId = await driveService.getAppFolderId();
+
+        // Search for existing file
+        const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name='lastsynctime' and trashed=false`;
+
+        const response = await fetch(searchUrl, {
+            headers: {
+                'Authorization': `Bearer ${driveService.authToken}`
+            }
+        });
+
+        const data = await response.json();
+        const timestampString = timestamp.toString();
+
+        if (data.files && data.files.length > 0) {
+            // Update existing file
+            const fileId = data.files[0].id;
+            await driveService.updateFile(fileId, timestampString);
+        } else {
+            // Create new file
+            const metadata = {
+                name: 'lastsynctime',
+                parents: [folderId],
+                mimeType: 'text/plain'
+            };
+            await driveService.createFile(metadata, timestampString);
+        }
+
+        console.log('Remote timestamp updated:', timestamp);
+    } catch (error) {
+        console.error('Failed to update remote timestamp:', error);
+        throw error;
+    }
+}
+
+// Handle draft upload (triggered when user saves/deletes messages)
+async function handleUploadDraft(draftData, sendResponse) {
+    try {
+        console.log('Draft operation triggered, starting sync...');
+
+        // Simply trigger a full sync
+        await new Promise((resolve, reject) => {
+            handleSync((response) => {
+                if (response.success) {
+                    resolve();
+                } else {
+                    reject(new Error(response.message));
+                }
+            });
+        });
+
+        sendResponse({ success: true, message: 'Changes synced' });
+    } catch (error) {
+        console.error('Draft sync failed:', error);
+        sendResponse({ success: false, message: error.message });
+    }
+}
+
+// Handle draft deletion (triggered when user deletes messages)
+async function handleDeleteDraft(draftId, sendResponse) {
+    try {
+        console.log('Delete operation triggered, starting sync...');
+
+        // Simply trigger a full sync
+        await new Promise((resolve, reject) => {
+            handleSync((response) => {
+                if (response.success) {
+                    resolve();
+                } else {
+                    reject(new Error(response.message));
+                }
+            });
+        });
+
+        sendResponse({ success: true, message: 'Deletion synced' });
+    } catch (error) {
+        console.error('Delete sync failed:', error);
         sendResponse({ success: false, message: error.message });
     }
 }
@@ -305,15 +378,37 @@ async function handleGetSyncStatus(sendResponse) {
     try {
         const isAuth = await driveService.isAuthenticated();
         const lastSync = await chrome.storage.local.get(['lastSyncTime']);
-        
+
+        // Get remote timestamp for debug info
+        let remoteTimestamp = null;
+        if (isAuth) {
+            try {
+                remoteTimestamp = await getRemoteTimestamp();
+            } catch (error) {
+                console.error('Failed to get remote timestamp for status:', error);
+            }
+        }
+
         sendResponse({
             success: true,
             authenticated: isAuth,
             lastSyncTime: lastSync.lastSyncTime || null,
-            syncInProgress: syncInProgress
+            syncInProgress: syncInProgress,
+            // Debug info
+            localLastSyncTime: lastSync.lastSyncTime || null,
+            remoteLastSyncTime: remoteTimestamp
         });
     } catch (error) {
         console.error('Status check failed:', error);
         sendResponse({ success: false, message: error.message });
     }
 }
+
+// Clean up on extension unload
+chrome.runtime.onSuspend.addListener(() => {
+    if (periodicSyncTimer) {
+        clearInterval(periodicSyncTimer);
+        periodicSyncTimer = null;
+    }
+    console.log('Extension suspended');
+});

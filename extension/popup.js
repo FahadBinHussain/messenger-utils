@@ -19,17 +19,17 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Check current status first
             const statusResponse = await sendMessage({ action: 'getSyncStatus' });
-            
+
             if (statusResponse && statusResponse.success && statusResponse.authenticated) {
                 statusDiv.textContent = 'Already authenticated!';
                 statusDiv.className = 'status success';
                 checkSyncStatus();
                 return;
             }
-            
+
             // Trigger authentication by requesting a sync
             const response = await sendMessage({ action: 'sync' });
-            
+
             if (response && response.success) {
                 statusDiv.textContent = 'Authentication successful!';
                 statusDiv.className = 'status success';
@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const response = await sendMessage({ action: 'sync' });
-            
+
             if (response && response.success) {
                 statusDiv.textContent = response.message || 'Synced successfully!';
                 statusDiv.className = 'status success';
@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkSyncStatus() {
         try {
             const response = await sendMessage({ action: 'getSyncStatus' });
-            
+
             if (response && response.success) {
                 if (response.authenticated) {
                     authSection.style.display = 'none';
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let infoText = '';
-        
+
         if (statusData.lastSyncTime) {
             const lastSync = new Date(statusData.lastSyncTime);
             const timeAgo = getTimeAgo(lastSync);
@@ -120,7 +120,18 @@ document.addEventListener('DOMContentLoaded', () => {
             infoText += ' (Sync in progress...)';
         }
 
+        // Add debug information
+        infoText += '\n\n--- DEBUG INFO ---';
+        infoText += `\nLocal sync time: ${statusData.localLastSyncTime || 'null'}`;
+        infoText += `\nRemote sync time: ${statusData.remoteLastSyncTime || 'null'}`;
+
+        if (statusData.localLastSyncTime && statusData.remoteLastSyncTime) {
+            const match = statusData.localLastSyncTime === statusData.remoteLastSyncTime;
+            infoText += `\nTimes match: ${match}`;
+        }
+
         syncInfoDiv.textContent = infoText;
+        syncInfoDiv.style.whiteSpace = 'pre-line'; // Allow line breaks
     }
 
     // Helper function to get time ago
@@ -150,4 +161,4 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-}); 
+});

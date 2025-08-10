@@ -25,17 +25,17 @@ class DriveService {
     async getAuthToken(interactive = false) {
         try {
             console.log("Getting auth token, interactive:", interactive);
-            
+
             // Detect browser type
             const isChrome = navigator.userAgent.includes('Chrome') && !navigator.userAgent.includes('Edge');
             console.log("Browser detection: Chrome =", isChrome);
-            
+
             const manifest = chrome.runtime.getManifest();
             const clientId = manifest.oauth2.client_id;
             const scopes = manifest.oauth2.scopes.join(' ');
-            
+
             let token;
-            
+
             if (isChrome) {
                 // Chrome-specific approach: Open a tab for authentication
                 console.log("Using Chrome-specific authentication approach");
@@ -58,7 +58,7 @@ class DriveService {
                         url: authUrl.href,
                         interactive: interactive
                     };
-                    
+
                     // Add Edge-specific options
                     if (!interactive) {
                         options.abortOnLoadForNonInteractive = true;
@@ -71,12 +71,12 @@ class DriveService {
                             reject(new Error(`Authentication failed: ${chrome.runtime.lastError.message}`));
                             return;
                         }
-                        
+
                         if (!responseUrl) {
                             reject(new Error("Could not get token. User may have cancelled the login flow."));
                             return;
                         }
-                        
+
                         // The token is in the URL fragment.
                         const url = new URL(responseUrl);
                         const params = new URLSearchParams(url.hash.substring(1)); // remove the '#'
@@ -92,7 +92,7 @@ class DriveService {
                     });
                 });
             }
-            
+
             if (token) {
                 this.authToken = token;
                 // Save token to storage
@@ -111,7 +111,7 @@ class DriveService {
     // App Folder Management
     async getAppFolderId() {
         console.log("Getting app folder ID...");
-        
+
         // Ensure we have auth token first
         if (!this.authToken) {
             console.log("No auth token, getting one...");
@@ -123,7 +123,7 @@ class DriveService {
         if (cached.appFolderId) {
             console.log("Found cached folder ID:", cached.appFolderId);
             this.appFolderId = cached.appFolderId;
-            
+
             // Verify the folder still exists
             try {
                 console.log("Verifying cached folder exists...");
@@ -132,7 +132,7 @@ class DriveService {
                         'Authorization': `Bearer ${this.authToken}`
                     }
                 });
-                
+
                 if (response.ok) {
                     console.log("Found existing app folder:", this.appFolderId);
                     return this.appFolderId;
@@ -156,7 +156,7 @@ class DriveService {
             console.log("Searching for existing folder...");
             // Search for existing folder
             const searchUrl = `https://www.googleapis.com/drive/v3/files?q=name='${this.appFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-            
+
             const response = await fetch(searchUrl, {
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`
@@ -172,7 +172,7 @@ class DriveService {
 
             const data = await response.json();
             console.log("Search results:", data.files ? data.files.length : 0, "folders found");
-            
+
             if (data.files && data.files.length > 0) {
                 this.appFolderId = data.files[0].id;
                 console.log("Found existing app folder:", this.appFolderId);
@@ -227,7 +227,7 @@ class DriveService {
     async uploadSync(data) {
         try {
             const folderId = await this.getAppFolderId();
-            
+
             // Use consistent filename instead of timestamp
             const jsonFileName = 'messenger_sync.json';
             await this.uploadOrUpdateJsonFile(data, jsonFileName, folderId);
@@ -243,7 +243,7 @@ class DriveService {
         try {
             // First, search for existing file
             const existingFileId = await this.findFileByName(fileName, folderId);
-            
+
             const fileContent = JSON.stringify(data, null, 2);
             const metadata = {
                 name: fileName,
@@ -269,7 +269,7 @@ class DriveService {
     async findFileByName(fileName, folderId) {
         try {
             const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name='${fileName}' and trashed=false`;
-            
+
             const response = await fetch(searchUrl, {
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`
@@ -339,12 +339,12 @@ class DriveService {
         const closeDelimiter = `\r\n--${boundary}--`;
 
         let requestBody = '';
-        
+
         // Metadata part
         requestBody += delimiter;
         requestBody += 'Content-Type: application/json; charset=UTF-8\r\n\r\n';
         requestBody += JSON.stringify(metadata) + '\r\n';
-        
+
         // File content part
         requestBody += delimiter;
         requestBody += 'Content-Type: application/json\r\n\r\n';
@@ -360,10 +360,10 @@ class DriveService {
             const fileExtension = imageFile.name.split('.').pop();
             const baseName = imageFile.name.replace(/\.[^/.]+$/, ""); // Remove extension
             const fileName = `${baseName}.${fileExtension}`;
-            
+
             // Search for existing image with same base name
             const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name='${fileName}' and trashed=false`;
-            
+
             const searchResponse = await fetch(searchUrl, {
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`
@@ -371,15 +371,15 @@ class DriveService {
             });
 
             const searchData = await searchResponse.json();
-            
+
             if (searchData.files && searchData.files.length > 0) {
                 // Update existing image
                 const fileId = searchData.files[0].id;
                 console.log('Updating existing image:', fileId);
-                
+
                 const formData = new FormData();
                 formData.append('image', imageFile);
-                
+
                 const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
                     method: 'PATCH',
                     headers: {
@@ -432,10 +432,10 @@ class DriveService {
     async downloadLatestSync() {
         try {
             const folderId = await this.getAppFolderId();
-            
+
             // Search for sync file
             const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name='messenger_sync.json' and trashed=false`;
-            
+
             const response = await fetch(searchUrl, {
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`
@@ -461,7 +461,7 @@ class DriveService {
             return null;
         }
     }
-    
+
     // Get file metadata without downloading content (for efficient change detection)
     async getFileMetadata(fileId) {
         try {
@@ -484,15 +484,15 @@ class DriveService {
             throw error;
         }
     }
-    
+
     // Get sync file metadata for quick change detection
     async getSyncFileMetadata() {
         try {
             const folderId = await this.getAppFolderId();
-            
+
             // Search for sync file with minimal fields
             const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and name='messenger_sync.json' and trashed=false&fields=files(id,modifiedTime)`;
-            
+
             const response = await fetch(searchUrl, {
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`
@@ -534,12 +534,12 @@ class DriveService {
 
             // Build multipart body
             let requestBody = '';
-            
+
             // Metadata part
             requestBody += delimiter;
             requestBody += 'Content-Type: application/json; charset=UTF-8\r\n\r\n';
             requestBody += JSON.stringify(metadataObj) + '\r\n';
-            
+
             // File content part
             requestBody += delimiter;
             requestBody += 'Content-Type: application/json\r\n\r\n';
@@ -589,6 +589,27 @@ class DriveService {
 
         } catch (error) {
             console.error('Error downloading file:', error);
+            throw error;
+        }
+    }
+
+    async downloadTextFile(fileId) {
+        try {
+            const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Download failed: ${response.status}`);
+            }
+
+            const text = await response.text();
+            return text.trim(); // Return plain text, not JSON
+
+        } catch (error) {
+            console.error('Error downloading text file:', error);
             throw error;
         }
     }
@@ -686,46 +707,46 @@ class DriveService {
             // Create the auth URL
             const redirectUri = chrome.identity.getRedirectURL();
             console.log("Chrome auth redirect URI:", redirectUri);
-            
+
             const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
             authUrl.searchParams.append('client_id', clientId);
             authUrl.searchParams.append('redirect_uri', redirectUri);
             authUrl.searchParams.append('response_type', 'token');
             authUrl.searchParams.append('scope', scopes);
             authUrl.searchParams.append('prompt', 'consent');
-            
+
             // Create a tab to handle the OAuth flow
             chrome.tabs.create({ url: authUrl.toString() }, (tab) => {
                 console.log("Auth tab created with ID:", tab.id);
-                
+
                 // Listen for URL changes in the tab
                 const tabUpdateListener = (tabId, changeInfo) => {
                     // Only process if it's our auth tab and URL has changed
                     if (tabId !== tab.id || !changeInfo.url) return;
-                    
+
                     // Check if the URL contains the access token
                     if (changeInfo.url.includes(redirectUri) && changeInfo.url.includes('access_token=')) {
                         console.log("Detected redirect with token");
-                        
+
                         // Extract the token
                         const url = new URL(changeInfo.url);
                         const params = new URLSearchParams(url.hash.substring(1));
                         const accessToken = params.get('access_token');
-                        
+
                         if (accessToken) {
                             // Clean up
                             chrome.tabs.onUpdated.removeListener(tabUpdateListener);
                             chrome.tabs.remove(tab.id);
-                            
+
                             console.log("Successfully obtained token via Chrome tab");
                             resolve(accessToken);
                         }
                     }
                 };
-                
+
                 // Add the listener
                 chrome.tabs.onUpdated.addListener(tabUpdateListener);
-                
+
                 // Set a timeout to prevent hanging
                 setTimeout(() => {
                     chrome.tabs.onUpdated.removeListener(tabUpdateListener);

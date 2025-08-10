@@ -40,7 +40,7 @@
     //         max-height: 400px;
     //         border: 1px solid #e4e6eb;
     //     }
-        
+
     //     .saved-messages-header {
     //         padding: 12px;
     //         background-color: #0084ff;
@@ -51,18 +51,18 @@
     //         align-items: center;
     //         cursor: move;
     //     }
-        
+
     //     .saved-messages-close {
     //         cursor: pointer;
     //         font-size: 18px;
     //     }
-        
+
     //     .saved-messages-body {
     //         padding: 12px;
     //         overflow-y: auto;
     //         flex-grow: 1;
     //     }
-        
+
     //     .saved-messages-item {
     //         margin-bottom: 10px;
     //         padding: 8px;
@@ -70,19 +70,19 @@
     //         border-radius: 8px;
     //         position: relative;
     //     }
-        
+
     //     .saved-messages-timestamp {
     //         font-size: 10px;
     //         color: #65676B;
     //         margin-top: 4px;
     //     }
-        
+
     //     .saved-messages-actions {
     //         display: flex;
     //         gap: 8px;
     //         margin-top: 5px;
     //     }
-        
+
     //     .saved-messages-actions button {
     //         padding: 4px 8px;
     //         border: none;
@@ -90,24 +90,24 @@
     //         cursor: pointer;
     //         font-size: 12px;
     //     }
-        
+
     //     .saved-message-use {
     //         background-color: #0084ff;
     //         color: white;
     //     }
-        
+
     //     .saved-message-delete {
     //         background-color: #f44336;
     //         color: white;
     //     }
-        
+
     //     .saved-messages-input {
     //         padding: 12px;
     //         display: flex;
     //         gap: 8px;
     //         border-top: 1px solid #e4e6eb;
     //     }
-        
+
     //     .saved-messages-input textarea {
     //         flex-grow: 1;
     //         border: 1px solid #e4e6eb;
@@ -144,7 +144,7 @@
     //         margin: 4px 0;
     //         object-fit: contain;
     //     }
-        
+
     //     .saved-messages-input button {
     //         background-color: #0084ff;
     //         color: white;
@@ -157,7 +157,7 @@
     //         justify-content: center;
     //         cursor: pointer;
     //     }
-        
+
     //     .saved-messages-toggle {
     //         position: fixed;
     //         bottom: 20px;
@@ -175,22 +175,22 @@
     //         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     //         z-index: 9999;
     //     }
-        
+
     //     .saved-messages-category {
     //         margin-bottom: 12px;
     //         padding-bottom: 8px;
     //         border-bottom: 1px solid #e4e6eb;
     //     }
-        
+
     //     .saved-messages-category-title {
     //         font-weight: bold;
     //         margin-bottom: 8px;
     //     }
-        
+
     //     .hidden {
     //         display: none;
     //     }
-        
+
     //     .keyboard-shortcut {
     //         display: inline-block;
     //         margin-left: 8px;
@@ -200,7 +200,7 @@
     //         font-size: 10px;
     //         color: #65676B;
     //     }
-        
+
     //     .saved-messages-menu {
     //         display: flex;
     //         justify-content: space-between;
@@ -208,7 +208,7 @@
     //         background-color: #f0f2f5;
     //         border-bottom: 1px solid #e4e6eb;
     //     }
-        
+
     //     .saved-messages-menu button {
     //         border: none;
     //         background-color: transparent;
@@ -217,11 +217,11 @@
     //         font-size: 12px;
     //         padding: 4px 8px;
     //     }
-        
+
     //     .saved-messages-menu button:hover {
     //         text-decoration: underline;
     //     }
-        
+
     //     .file-input-hidden {
     //         display: none;
     //     }
@@ -274,65 +274,65 @@
         const container = document.createElement('div');
         container.className = 'saved-messages-container hidden';
         container.dataset.savedMessageUiElement = 'true';
-        
+
         // Create header
         const header = document.createElement('div');
         header.className = 'saved-messages-header';
         header.textContent = 'GlitchDraft';
         header.innerHTML += '<span class="keyboard-shortcut">Alt+M</span>';
         header.dataset.savedMessageUiElement = 'true';
-        
+
         // Create close button
         const closeButton = document.createElement('span');
         closeButton.className = 'saved-messages-close';
         closeButton.textContent = '×';
         closeButton.dataset.savedMessageUiElement = 'true';
         header.appendChild(closeButton);
-        
+
         // Create menu
         const menu = document.createElement('div');
         menu.className = 'saved-messages-menu';
         menu.dataset.savedMessageUiElement = 'true';
-        
+
         const exportButton = document.createElement('button');
         exportButton.textContent = 'Export All';
         exportButton.dataset.savedMessageUiElement = 'true';
         exportButton.onclick = exportSavedMessages;
-        
+
         const importButton = document.createElement('button');
         importButton.textContent = 'Import';
         importButton.dataset.savedMessageUiElement = 'true';
         importButton.onclick = triggerImportDialog;
-        
+
         // Add sync button
         const syncButton = document.createElement('button');
         syncButton.textContent = 'Sync Now';
         syncButton.dataset.savedMessageUiElement = 'true';
         syncButton.onclick = syncWithCloud;
-        
+
         const debugButton = document.createElement('button');
         debugButton.textContent = 'Debug';
         debugButton.title = 'Find input field selectors';
         debugButton.style.marginLeft = 'auto';
         debugButton.dataset.savedMessageUiElement = 'true';
         debugButton.onclick = debugInputFields;
-        
+
         const debugToggleButton = document.createElement('button');
         debugToggleButton.textContent = config.debugMode ? '🐞 On' : '🐞 Off';
         debugToggleButton.title = 'Toggle debug mode';
         debugToggleButton.style.marginLeft = '5px';
         debugToggleButton.dataset.savedMessageUiElement = 'true';
         debugToggleButton.onclick = toggleDebugMode;
-        
+
         menu.appendChild(exportButton);
         menu.appendChild(importButton);
         menu.appendChild(syncButton);
         menu.appendChild(debugToggleButton);
-        
+
         if (config.debugMode) {
             menu.appendChild(debugButton);
         }
-        
+
         // Hidden file input for import
         fileInput = document.createElement('input');
         fileInput.type = 'file';
@@ -341,50 +341,50 @@
         fileInput.dataset.savedMessageUiElement = 'true';
         fileInput.onchange = importSavedMessages;
         document.body.appendChild(fileInput);
-        
+
         // Create sync status section
         const syncStatusSection = document.createElement('div');
         syncStatusSection.className = 'saved-messages-sync-status';
         syncStatusSection.dataset.savedMessageUiElement = 'true';
-        
+
         const syncStatusText = document.createElement('div');
         syncStatusText.id = 'syncStatus';
         syncStatusText.className = 'status';
         syncStatusText.dataset.savedMessageUiElement = 'true';
-        
+
         const syncInfoText = document.createElement('div');
         syncInfoText.id = 'syncInfo';
         syncInfoText.className = 'sync-info';
         syncInfoText.dataset.savedMessageUiElement = 'true';
-        
+
         syncStatusSection.appendChild(syncStatusText);
         syncStatusSection.appendChild(syncInfoText);
-        
+
         // Create body
         const body = document.createElement('div');
         body.className = 'saved-messages-body';
         body.dataset.savedMessageUiElement = 'true';
-        
+
         // Create input area
         const inputArea = document.createElement('div');
         inputArea.className = 'saved-messages-input';
         inputArea.dataset.savedMessageUiElement = 'true';
-        
+
         const textarea = document.createElement('div');
         textarea.className = 'message-input-div';
         textarea.contentEditable = 'true';
         textarea.setAttribute('role', 'textbox');
         textarea.dataset.placeholder = 'Type message or paste image... (Alt+S to save)';
         textarea.dataset.savedMessageUiElement = 'true';
-        
+
         const saveButton = document.createElement('button');
         saveButton.textContent = '+';
         saveButton.title = 'Save Message (Alt+S)';
         saveButton.dataset.savedMessageUiElement = 'true';
-        
+
         inputArea.appendChild(textarea);
         inputArea.appendChild(saveButton);
-        
+
         // Append all elements
         container.appendChild(header);
         container.appendChild(menu);
@@ -392,12 +392,12 @@
         container.appendChild(body);
         container.appendChild(inputArea);
         document.body.appendChild(container);
-        
+
         // Add event listeners
         toggleButton.addEventListener('click', toggleContainer);
         closeButton.addEventListener('click', toggleContainer);
         saveButton.addEventListener('click', saveMessage);
-        
+
         // Add keyboard shortcut for saving message
         textarea.addEventListener('keydown', (e) => {
             if (e.altKey && e.key === 's') {
@@ -405,15 +405,15 @@
                 saveMessage();
             }
         });
-        
+
         // Add paste event listener to capture GIFs
         textarea.addEventListener('paste', handlePaste);
-        
+
         // Add drag functionality
         header.addEventListener('mousedown', startDragging);
         document.addEventListener('mousemove', drag);
         document.addEventListener('mouseup', stopDragging);
-        
+
         // Make the toggle button draggable as well
         toggleButton.addEventListener('mousedown', startDraggingToggle);
         document.addEventListener('mousemove', dragToggle);
@@ -421,7 +421,7 @@
 
         // Load saved positions
         loadPositions();
-        
+
         return {
             container,
             body,
@@ -440,7 +440,7 @@
             toggleContainer();
         }
     });
-    
+
     // Listen for messages from background script
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.action === 'toggleUI') {
@@ -460,7 +460,7 @@
         }
         return true;
     });
-    
+
     // Register in Tampermonkey menu
     // GM_registerMenuCommand("Toggle Saved Messages", toggleContainer); // TODO: Replace with chrome.storage
     // GM_registerMenuCommand("Export All Saved Messages", exportSavedMessages); // TODO: Replace with chrome.storage
@@ -468,7 +468,7 @@
     if (config.debugMode) {
         // GM_registerMenuCommand("Debug Input Fields", debugInputFields); // TODO: Replace with chrome.storage
     }
-    
+
     // Check sync status when UI is opened
     function checkSyncStatus() {
         try {
@@ -477,7 +477,7 @@
                     console.error('Failed to check sync status:', chrome.runtime.lastError);
                     return;
                 }
-                
+
                 if (response && response.success) {
                     updateSyncInfo(response);
                 }
@@ -486,15 +486,15 @@
             console.error('Failed to check sync status:', error);
         }
     }
-    
+
     // Update sync information display
     function updateSyncInfo(statusData = null) {
         const syncStatusText = document.getElementById('syncStatus');
         const syncInfoText = document.getElementById('syncInfo');
         const syncStatusSection = document.querySelector('.saved-messages-sync-status');
-        
+
         if (!syncStatusText || !syncInfoText || !syncStatusSection) return;
-        
+
         if (!statusData) {
             // Get status from background
             chrome.runtime.sendMessage({ action: 'getSyncStatus' }, (response) => {
@@ -502,7 +502,7 @@
                     console.error('Failed to get sync status:', chrome.runtime.lastError);
                     return;
                 }
-                
+
                 if (response && response.success) {
                     updateSyncInfo(response);
                 }
@@ -515,7 +515,7 @@
         if (existingAuthButton) {
             existingAuthButton.remove();
         }
-        
+
         // Clear any existing progress bar
         const existingProgressBar = syncStatusSection.querySelector('.sync-progress-container');
         if (existingProgressBar) {
@@ -529,7 +529,7 @@
         } else {
             syncStatusText.textContent = 'Not connected to Google Drive';
             syncStatusText.className = 'status warning';
-            
+
             // Add auth button if not authenticated
             const authButton = document.createElement('button');
             authButton.className = 'auth-button';
@@ -538,10 +538,10 @@
             authButton.onclick = authenticateWithGoogle;
             syncStatusSection.appendChild(authButton);
         }
-        
+
         // Update sync info
         let infoText = '';
-        
+
         if (statusData.lastSyncTime) {
             const lastSync = new Date(statusData.lastSyncTime);
             const timeAgo = getTimeAgo(lastSync);
@@ -552,16 +552,16 @@
 
         if (statusData.syncInProgress) {
             infoText += ' (Sync in progress...)';
-            
+
             // Add progress bar for sync in progress
             const progressContainer = document.createElement('div');
             progressContainer.className = 'sync-progress-container';
             progressContainer.dataset.savedMessageUiElement = 'true';
-            
+
             const progressBar = document.createElement('div');
             progressBar.className = 'sync-progress-bar';
             progressBar.dataset.savedMessageUiElement = 'true';
-            
+
             // Animate the progress bar
             let progress = 0;
             const progressInterval = setInterval(() => {
@@ -570,7 +570,7 @@
                     progress += (90 - progress) / 10;
                 }
                 progressBar.style.width = `${progress}%`;
-                
+
                 // Check if sync is still in progress
                 chrome.runtime.sendMessage({ action: 'getSyncStatus' }, (response) => {
                     if (response && response.success && !response.syncInProgress) {
@@ -586,14 +586,14 @@
                     }
                 });
             }, 300);
-            
+
             progressContainer.appendChild(progressBar);
             syncStatusSection.appendChild(progressContainer);
         }
 
         syncInfoText.textContent = infoText;
     }
-    
+
     // Helper function to get time ago
     function getTimeAgo(date) {
         const now = new Date();
@@ -608,22 +608,22 @@
         if (diffDays < 7) return `${diffDays} days ago`;
         return date.toLocaleDateString();
     }
-    
+
     // Function to authenticate with Google
     async function authenticateWithGoogle() {
         const syncStatusText = document.getElementById('syncStatus');
         const authButton = document.querySelector('.auth-button');
-        
+
         if (syncStatusText) {
             syncStatusText.textContent = 'Signing in...';
             syncStatusText.className = 'status';
         }
-        
+
         if (authButton) {
             authButton.disabled = true;
             authButton.textContent = 'Signing in...';
         }
-        
+
         try {
             // Check current status first
             const statusResponse = await new Promise((resolve, reject) => {
@@ -635,7 +635,7 @@
                     }
                 });
             });
-            
+
             if (statusResponse && statusResponse.success && statusResponse.authenticated) {
                 if (syncStatusText) {
                     syncStatusText.textContent = 'Already authenticated!';
@@ -644,7 +644,7 @@
                 updateSyncInfo(statusResponse);
                 return;
             }
-            
+
             // Trigger authentication by requesting a sync
             const response = await new Promise((resolve, reject) => {
                 chrome.runtime.sendMessage({ action: 'sync' }, (response) => {
@@ -655,7 +655,7 @@
                     }
                 });
             });
-            
+
             if (response && response.success) {
                 if (syncStatusText) {
                     syncStatusText.textContent = 'Authentication successful!';
@@ -681,15 +681,16 @@
             }
         }
     }
-    
+
     // Function to sync with cloud
     async function syncWithCloud() {
+        console.log('DEBUG: syncWithCloud() called');
         const syncStatusText = document.getElementById('syncStatus');
         if (syncStatusText) {
             syncStatusText.textContent = 'Starting sync...';
             syncStatusText.className = 'status';
         }
-        
+
         // Update sync info to show progress bar
         const statusData = {
             authenticated: true,  // Assume authenticated since we're syncing
@@ -697,18 +698,21 @@
             lastSyncTime: Date.now()
         };
         updateSyncInfo(statusData);
-        
+
         try {
+            console.log('DEBUG: Sending sync message to background script');
             const response = await new Promise((resolve, reject) => {
                 chrome.runtime.sendMessage({ action: 'sync' }, (response) => {
                     if (chrome.runtime.lastError) {
+                        console.log('DEBUG: Chrome runtime error:', chrome.runtime.lastError.message);
                         reject(new Error(chrome.runtime.lastError.message));
                     } else {
+                        console.log('DEBUG: Received response from background:', response);
                         resolve(response);
                     }
                 });
             });
-            
+
             if (response && response.success) {
                 if (syncStatusText) {
                     syncStatusText.textContent = response.message || 'Synced successfully!';
@@ -765,19 +769,19 @@
     function formatTimestamp(timestamp) {
         const date = new Date(timestamp);
         const now = new Date();
-        
+
         // If today, show time only
         if (date.toDateString() === now.toDateString()) {
             return 'Today at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
-        
+
         // If yesterday
         const yesterday = new Date(now);
         yesterday.setDate(now.getDate() - 1);
         if (date.toDateString() === yesterday.toDateString()) {
             return 'Yesterday at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
-        
+
         // Otherwise show full date
         return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
@@ -805,11 +809,11 @@
             isDragging = false;
             ui.container.style.cursor = 'default';
             const containerRect = ui.container.getBoundingClientRect();
-            chrome.storage.local.set({ 
-                containerPosition: { 
-                    left: containerRect.left, 
-                    top: containerRect.top 
-                } 
+            chrome.storage.local.set({
+                containerPosition: {
+                    left: containerRect.left,
+                    top: containerRect.top
+                }
             });
         }
     }
@@ -844,11 +848,11 @@
             isDraggingToggle = false;
             ui.toggleButton.style.cursor = 'pointer';
             const toggleRect = ui.toggleButton.getBoundingClientRect();
-            chrome.storage.local.set({ 
-                togglePosition: { 
-                    left: toggleRect.left, 
-                    top: toggleRect.top 
-                } 
+            chrome.storage.local.set({
+                togglePosition: {
+                    left: toggleRect.left,
+                    top: toggleRect.top
+                }
             });
         }
     }
@@ -877,10 +881,10 @@
             notification.className = 'saved-messages-notification';
             document.body.appendChild(notification);
         }
-        
+
         notification.textContent = message;
         notification.classList.add('visible');
-        
+
         setTimeout(() => {
             notification.classList.remove('visible');
         }, 3000);
@@ -888,11 +892,15 @@
 
     // Function to save a message
     async function saveMessage() {
+        console.log('DEBUG: saveMessage() called');
         const messageInput = ui.textarea;
         const messageHtml = messageInput.innerHTML.trim();
-        
-        if (!messageHtml) return;
-        
+
+        if (!messageHtml) {
+            console.log('DEBUG: saveMessage() - no message content, returning');
+            return;
+        }
+
         // Create a temporary div to process the HTML
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = messageHtml;
@@ -932,7 +940,7 @@
         // Extract text content and image files for cloud sync
         const textContent = tempDiv.textContent || tempDiv.innerText || '';
         const imageFiles = [];
-        
+
         // Extract images as files for cloud sync
         const imageElements = tempDiv.querySelectorAll('img');
         for (const img of imageElements) {
@@ -950,22 +958,25 @@
 
         chrome.storage.local.get(chatId, (result) => {
             const savedMessages = result[chatId] || [];
-            
+
             // Add the new message at the beginning of the array (newest first)
             savedMessages.unshift({
                 html: finalHtml,
                 timestamp: Date.now()
             });
-            
+
             chrome.storage.local.set({ [chatId]: savedMessages }, () => {
+                console.log('DEBUG: Message saved to local storage, chatId:', chatId);
                 messageInput.innerHTML = '';
                 loadSavedMessages();
-                
-                // Sync to Google Drive if authenticated
-                syncDraftToCloud(textContent, imageFiles.length > 0 ? imageFiles[0] : null);
-                
-                // Perform a full sync to ensure everything is up to date
-                syncWithCloud();
+
+                // Trigger sync to upload the new message to Drive
+                // Use a small delay to ensure local storage write is complete
+                console.log('DEBUG: About to trigger syncWithCloud in 100ms');
+                setTimeout(() => {
+                    console.log('DEBUG: Calling syncWithCloud after save');
+                    syncWithCloud();
+                }, 100);
             });
         });
     }
@@ -1016,35 +1027,35 @@
             }
 
             ui.body.innerHTML = '';
-            
+
             // Sort messages by timestamp (newest first)
             savedMessages.sort((a, b) => b.timestamp - a.timestamp);
-            
+
             // Render all messages
             savedMessages.forEach((message, index) => {
                 const messageElement = document.createElement('div');
                 messageElement.className = 'saved-messages-item';
                 messageElement.dataset.savedMessageUiElement = 'true';
-                
+
                 const messageText = document.createElement('div');
                 messageText.innerHTML = message.html;
                 messageText.dataset.savedMessageUiElement = 'true';
-                
+
                 const timestampDiv = document.createElement('div');
                 timestampDiv.className = 'saved-messages-timestamp';
                 timestampDiv.textContent = formatTimestamp(message.timestamp);
                 timestampDiv.dataset.savedMessageUiElement = 'true';
-                
+
                 const actionsDiv = document.createElement('div');
                 actionsDiv.className = 'saved-messages-actions';
                 actionsDiv.dataset.savedMessageUiElement = 'true';
-                
+
                 const useButton = document.createElement('button');
                 useButton.className = 'saved-message-use';
                 useButton.textContent = 'Use';
                 useButton.dataset.savedMessageUiElement = 'true';
                 useButton.onclick = () => useMessage(message.html);
-                
+
                 const copyButton = document.createElement('button');
                 copyButton.className = 'saved-message-copy';
                 copyButton.textContent = 'Copy';
@@ -1053,21 +1064,21 @@
                 copyButton.title = 'Copy to clipboard';
                 copyButton.dataset.savedMessageUiElement = 'true';
                 copyButton.onclick = () => copyToClipboard(message.html, 'Message copied to clipboard! You can now paste it.');
-                
+
                 const deleteButton = document.createElement('button');
                 deleteButton.className = 'saved-message-delete';
                 deleteButton.textContent = 'Delete';
                 deleteButton.dataset.savedMessageUiElement = 'true';
                 deleteButton.onclick = () => deleteMessage(index);
-                
+
                 actionsDiv.appendChild(useButton);
                 actionsDiv.appendChild(copyButton);
                 actionsDiv.appendChild(deleteButton);
-                
+
                 messageElement.appendChild(messageText);
                 messageElement.appendChild(timestampDiv);
                 messageElement.appendChild(actionsDiv);
-                
+
                 ui.body.appendChild(messageElement);
             });
         });
@@ -1122,7 +1133,7 @@
         // Create a temporary div to manipulate the content
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = html;
-        
+
         // Find all links and ensure they're properly preserved
         const links = tempDiv.querySelectorAll('a');
         links.forEach(link => {
@@ -1131,13 +1142,13 @@
             const textNode = document.createTextNode(href);
             link.parentNode.replaceChild(textNode, link);
         });
-        
+
         // Find all images
         const images = Array.from(tempDiv.querySelectorAll('img'));
-        
+
         // Get the HTML of the first image for the clipboard
         const firstImageSrc = images.length > 0 ? images[0].src : null;
-        
+
         // Remove images from the div to get the text-only HTML
         images.forEach(img => img.remove());
         const htmlToInsert = tempDiv.innerHTML.trim();
@@ -1147,7 +1158,7 @@
             ui.textarea.blur();
         }
         toggleContainer();
-        
+
         setTimeout(() => {
             // If there's text, insert it.
             if (htmlToInsert) {
@@ -1167,12 +1178,12 @@
                         // Fetch the image data
                         const response = await fetch(firstImageSrc);
                         const blob = await response.blob();
-                        
+
                         // Create a File object with the appropriate MIME type
                         const mimeType = blob.type || 'image/png'; // Default to PNG if type is not available
                         const fileName = mimeType.includes('gif') ? "saved.gif" : "saved.png";
                         const file = new File([blob], fileName, { type: mimeType });
-                        
+
                         // Find the messenger input field
                         const inputField = findMessengerInputField();
                         if (inputField) {
@@ -1180,7 +1191,7 @@
                             simulateFileDrop(file, inputField);
                         } else {
                             showNotification('Could not find message field to add image');
-                            
+
                             // Fallback to copying to clipboard
                             try {
                                 await navigator.clipboard.write([
@@ -1203,7 +1214,7 @@
             }
         }, 50);
     }
-    
+
     function findMessengerInputField() {
         // This is the list of selectors used to find the input box.
         // It's duplicated from insertMessageIntoInputField for now.
@@ -1249,36 +1260,36 @@
     // Helper function to check if element belongs to our UI
     function isOurUIElement(element) {
         if (!element) return false;
-        
+
         // Check if the element itself has our marker
         if (element.dataset && element.dataset.savedMessageUiElement === 'true') {
             return true;
         }
-        
+
         // Check if it's within our UI container
         if (ui.container && ui.container.contains(element)) {
             return true;
         }
-        
+
         // Check if it's our toggle button
         if (ui.toggleButton && ui.toggleButton.contains(element)) {
             return true;
         }
-        
+
         // Check if it's part of the file input
         if (fileInput && fileInput.contains(element)) {
             return true;
         }
-        
+
         return false;
     }
-    
+
     // Helper function to actually insert the message
     function insertMessageIntoInputField(html) {
         // Find the message input field - try multiple possible selectors
         let inputField = null;
         let matchedSelector = '';
-        
+
         // Try different selectors that might match the Messenger input field
         const possibleSelectors = [
             // Add the exact selector from the user's console output first (highest priority)
@@ -1298,11 +1309,11 @@
             'form [contenteditable="true"]',
             '[contenteditable="true"]'
         ];
-        
+
         // First try direct match with the console output
         const specificSelector = 'div.xzsf02u.x1a2a7pz.x1n2onr6.x14wi4xw.x1iyjqo2.x1gh3ibb.xisnujt.xeuugli.x1odjw0f.notranslate[contenteditable="true"][role="textbox"][spellcheck="true"][data-lexical-editor="true"]';
         const specificElement = document.querySelector(specificSelector);
-        
+
         if (specificElement && !isOurUIElement(specificElement)) {
             inputField = specificElement;
             matchedSelector = specificSelector;
@@ -1317,7 +1328,7 @@
                         let maxBottom = 0;
                         for (const el of elements) {
                             if (isOurUIElement(el)) continue; // Skip our own UI elements
-                            
+
                             const rect = el.getBoundingClientRect();
                             if (rect.bottom > maxBottom && rect.width > 50) { // Ensure it's not a tiny element
                                 maxBottom = rect.bottom;
@@ -1327,7 +1338,7 @@
                     } else if (!isOurUIElement(elements[0])) {
                         inputField = elements[0];
                     }
-                    
+
                     if (inputField) {
                         matchedSelector = selector;
                         break;
@@ -1335,16 +1346,16 @@
                 }
             }
         }
-        
+
         if (config.debugMode) {
-            console.log('Input field search results:', { 
-                found: !!inputField, 
-                matchedSelector, 
+            console.log('Input field search results:', {
+                found: !!inputField,
+                matchedSelector,
                 element: inputField,
                 isOurElement: inputField ? isOurUIElement(inputField) : false
             });
         }
-        
+
         if (inputField && !isOurUIElement(inputField)) {
             try {
                 // First, focus the element. This is important for many paste handlers.
@@ -1371,7 +1382,7 @@
                                 console.log('Message insertion successful using selector:', matchedSelector);
                             }
                             positionCursorAtEnd(inputField);
-                            
+
                             // If there's a "send" button visible, we could optionally focus that too
                             const sendButton = document.querySelector('button[aria-label="Send"]');
                             if (sendButton) {
@@ -1385,7 +1396,7 @@
                     }, 100);
 
                 }, 50);
-                
+
                 return true; // We attempted insertion.
             } catch (error) {
                 console.error('Error inserting message:', error);
@@ -1400,7 +1411,7 @@
             return false;
         }
     }
-    
+
     // Position cursor at the end of content
     function positionCursorAtEnd(element) {
         try {
@@ -1408,7 +1419,7 @@
             const range = document.createRange();
             range.selectNodeContents(element);
             range.collapse(false); // collapse to end
-            
+
             // Apply the selection
             const selection = window.getSelection();
             selection.removeAllRanges();
@@ -1419,7 +1430,7 @@
             }
         }
     }
-    
+
     // Insert text directly into the element
     function insertTextDirectly(element, html) {
         // Additional safety check to ensure we're not affecting our own UI
@@ -1427,14 +1438,14 @@
             console.error('Attempted to modify our own UI element');
             return false;
         }
-        
+
         try {
             // First clear the field
             element.innerHTML = '';
-            
+
             // Setting innerHTML is the most direct way for HTML content
             element.innerHTML = html;
-            
+
             // Dispatch events to notify React/Facebook
             ['input', 'change'].forEach(eventType => {
                 try {
@@ -1446,14 +1457,14 @@
                     }
                 }
             });
-            
+
             return true;
         } catch (e) {
             console.log('Direct HTML insertion failed:', e);
             return false;
         }
     }
-    
+
     function simulatePaste(element, html) {
         if (isOurUIElement(element)) {
             console.error('Attempted to paste into our own UI element');
@@ -1465,13 +1476,13 @@
                 cancelable: true,
                 clipboardData: new DataTransfer()
             });
-            
+
             // Add both HTML and plain text versions for compatibility
             pasteEvent.clipboardData.setData('text/html', html);
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = html.replace(/<br\s*\/?>/gi, '\n'); // Convert <br> to newlines for text
             pasteEvent.clipboardData.setData('text/plain', tempDiv.textContent || '');
-            
+
             element.dispatchEvent(pasteEvent);
             return true;
         } catch (e) {
@@ -1481,7 +1492,7 @@
             return false;
         }
     }
-    
+
     // Helper function to check if text was successfully inserted
     function checkTextInserted(element, expectedHtml) {
         if (!element || !expectedHtml) return false;
@@ -1493,7 +1504,7 @@
 
         const actualText = element.textContent.trim();
         const actualImgCount = element.querySelectorAll('img').length;
-        
+
         // If the target is empty, insertion definitely failed.
         if (!element.innerHTML.trim()) {
             return false;
@@ -1516,31 +1527,34 @@
 
         return true;
     }
-    
+
     // Function to delete a saved message
     function deleteMessage(index) {
+        console.log('DEBUG: deleteMessage() called, index:', index);
         const chatId = getCurrentChatId();
-        if (!chatId) return;
+        if (!chatId) {
+            console.log('DEBUG: deleteMessage() - no chatId, returning');
+            return;
+        }
 
         chrome.storage.local.get(chatId, (result) => {
             const savedMessages = result[chatId] || [];
             const deletedMessage = savedMessages[index];
+            console.log('DEBUG: Deleting message:', deletedMessage);
             savedMessages.splice(index, 1);
-            
+
             chrome.storage.local.set({ [chatId]: savedMessages }, () => {
+                console.log('DEBUG: Message deleted from local storage, chatId:', chatId);
                 loadSavedMessages();
-                
-                // Sync deletion to Google Drive if the message was synced
-                if (deletedMessage && deletedMessage.remoteFileId) {
-                    syncDeletionToCloud(deletedMessage.remoteFileId, deletedMessage.remoteImageId);
-                }
-                
+
                 // Perform a full sync to ensure everything is up to date
+                // This will upload all local changes including the deletion
+                console.log('DEBUG: Calling syncWithCloud after delete');
                 syncWithCloud();
             });
         });
     }
-    
+
     // Helper function to send messages to background script
     function sendMessage(message) {
         return new Promise((resolve, reject) => {
@@ -1580,22 +1594,22 @@
             console.error('Error syncing deletion to cloud:', error);
         }
     }
-    
+
     // Function to trigger the import dialog
     function triggerImportDialog() {
         fileInput.click();
     }
-    
+
     // Function to import saved messages from a file
     function importSavedMessages(event) {
         const file = event.target.files[0];
         if (!file) return;
-        
+
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const data = JSON.parse(e.target.result);
-                
+
                 if (typeof data !== 'object' || data === null) throw new Error('Invalid data format: not an object');
 
                 // The data to be set in storage
@@ -1627,7 +1641,7 @@
 
                 chrome.storage.local.set(importData, () => {
                     alert(`Successfully imported ${messageCount} messages for ${chatCount} chats, along with UI settings.`);
-                    
+
                     // Apply imported settings immediately
                     if (importData.config) {
                         Object.assign(config, importData.config);
@@ -1681,7 +1695,7 @@
             });
         });
     }
-    
+
     // Helper function to trigger download
     function downloadJSON(data, filename) {
         const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
@@ -1709,7 +1723,7 @@
             'div[role="textbox"]',
             'div[contenteditable="true"]'
         ];
-        
+
         const results = selectors.map(selector => {
             const elements = document.querySelectorAll(selector);
             return {
@@ -1730,7 +1744,7 @@
                 }))
             };
         });
-        
+
         // Find closest to bottom of page (likely the input field)
         let maxBottom = 0;
         let bottomElement = null;
@@ -1741,10 +1755,10 @@
                 bottomElement = el;
             }
         });
-        
+
         console.log('Potential Input Field Selectors:', results);
         console.log('Likely input field (bottom-most contenteditable):', bottomElement);
-        
+
         if (bottomElement) {
             console.log('Bottom element classes:', bottomElement.className);
             console.log('Bottom element attributes:', {
@@ -1754,7 +1768,7 @@
                 'aria-label': bottomElement.getAttribute('aria-label'),
                 spellcheck: bottomElement.getAttribute('spellcheck')
             });
-            
+
             // Create accurate CSS selector for this element
             let accurateSelector = bottomElement.tagName.toLowerCase();
             if (bottomElement.className) {
@@ -1766,10 +1780,10 @@
                     accurateSelector += `[${attr}="${value}"]`;
                 }
             });
-            
+
             console.log('Accurate selector for bottom element:', accurateSelector);
             alert('Check your browser console for detailed results. The most likely input field has been identified with selector: ' + accurateSelector);
-            
+
             // Test with a temp message
             const origContent = bottomElement.innerHTML;
             try {
@@ -1781,13 +1795,13 @@
                 console.error('Error setting test message:', e);
             }
         }
-        
+
         // Show alert with summary
         const matchingSelectorsList = results
             .filter(r => r.count > 0)
             .map(r => `${r.selector}: ${r.count} element(s)`)
             .join('\n');
-        
+
         alert(`Potential input field selectors found:\n${matchingSelectorsList}\n\nCheck browser console for details.`);
     }
 
@@ -1795,17 +1809,17 @@
     function toggleDebugMode() {
         config.debugMode = !config.debugMode;
         saveConfig();
-        
+
         // Update UI to reflect debug mode
         const debugToggleButton = document.querySelector('button[title="Toggle debug mode"]');
         if (debugToggleButton) {
             debugToggleButton.textContent = config.debugMode ? '🐞 On' : '🐞 Off';
         }
-        
+
         // Add or remove debug button based on debug mode
         const menu = document.querySelector('.saved-messages-menu');
         const existingDebugButton = menu.querySelector('button[title="Find input field selectors"]');
-        
+
         if (config.debugMode && !existingDebugButton) {
             const debugButton = document.createElement('button');
             debugButton.textContent = 'Debug';
@@ -1816,7 +1830,7 @@
         } else if (!config.debugMode && existingDebugButton) {
             existingDebugButton.remove();
         }
-        
+
         alert(`Debug mode ${config.debugMode ? 'enabled' : 'disabled'}. ${config.debugMode ? 'Additional debug options are now available.' : ''}`);
     }
 
@@ -1836,7 +1850,7 @@
         document.addEventListener('copy', listener);
         document.execCommand('copy');
         document.removeEventListener('copy', listener);
-        
+
         showNotification(notificationMessage);
     }
 
@@ -1845,20 +1859,20 @@
         // Check if the clipboard contains a GIF
         if (e.clipboardData && e.clipboardData.items) {
             const items = e.clipboardData.items;
-            
+
             for (let i = 0; i < items.length; i++) {
                 // Check for any image type
                 if (items[i].type.indexOf('image/') !== -1) {
                     // We found an image, let's handle it
                     e.preventDefault(); // Prevent default paste behavior
-                    
+
                     const blob = items[i].getAsFile();
                     const isGif = items[i].type === 'image/gif';
-                    
+
                     if (isGif) {
                         // For GIFs, use the simulateFileDrop approach for better compatibility
                         const file = new File([blob], "pasted.gif", { type: "image/gif" });
-                        
+
                         // First add to our textarea for saving
                         const dataUrl = await new Promise((resolve, reject) => {
                             const reader = new FileReader();
@@ -1866,15 +1880,15 @@
                             reader.onerror = reject;
                             reader.readAsDataURL(blob);
                         });
-                        
+
                         // Create an img element with the GIF data for our saved messages
                         const imgElement = document.createElement('img');
                         imgElement.src = dataUrl;
                         ui.textarea.appendChild(imgElement);
-                        
+
                         // Position cursor after the image
                         positionCursorAtEnd(ui.textarea);
-                        
+
                         return;
                     } else {
                         // For other images, convert to data URL as before
@@ -1884,34 +1898,34 @@
                             reader.onerror = reject;
                             reader.readAsDataURL(blob);
                         });
-                        
+
                         // Create an img element with the image data
                         const imgElement = document.createElement('img');
                         imgElement.src = dataUrl;
                         ui.textarea.appendChild(imgElement);
-                        
+
                         // Position cursor after the image
                         positionCursorAtEnd(ui.textarea);
-                        
+
                         return;
                     }
                 }
             }
-            
+
             // Check for URLs that might be GIFs
             const text = e.clipboardData.getData('text');
             if (text && (text.endsWith('.gif') || text.includes('.gif?'))) {
                 e.preventDefault(); // Prevent default paste behavior
-                
+
                 try {
                     // Fetch the GIF
                     const response = await fetch(text);
                     const blob = await response.blob();
-                    
+
                     if (blob.type === 'image/gif') {
                         // Create a File object for the GIF
                         const file = new File([blob], "pasted.gif", { type: "image/gif" });
-                        
+
                         // Convert to data URL for our saved messages
                         const dataUrl = await new Promise((resolve, reject) => {
                             const reader = new FileReader();
@@ -1919,15 +1933,15 @@
                             reader.onerror = reject;
                             reader.readAsDataURL(blob);
                         });
-                        
+
                         // Create an img element with the GIF data
                         const imgElement = document.createElement('img');
                         imgElement.src = dataUrl;
                         ui.textarea.appendChild(imgElement);
-                        
+
                         // Position cursor after the image
                         positionCursorAtEnd(ui.textarea);
-                        
+
                         return;
                     }
                 } catch (error) {
@@ -1936,7 +1950,7 @@
                 }
             }
         }
-        
+
         // If no image was found, let the default paste behavior happen
     }
 
@@ -1944,24 +1958,24 @@
     function init() {
         // Check for URL changes every second
         setInterval(checkUrlChange, 1000);
-        
+
         // Initial URL check
         checkUrlChange();
-        
+
         // Set up MutationObserver to detect dynamically loaded elements
         setupMutationObserver();
     }
-    
+
     // Set up MutationObserver to detect when Messenger dynamically adds or removes elements
     function setupMutationObserver() {
         // Options for the observer (which mutations to observe)
-        const config = { 
-            childList: true, 
+        const config = {
+            childList: true,
             subtree: true,
             attributes: false,
             characterData: false
         };
-        
+
         // Create an observer instance linked to the callback function
         const observer = new MutationObserver((mutationsList, observer) => {
             // Check if the input field is now available
@@ -1969,7 +1983,7 @@
                 // Input field detected, no need to do anything special
                 return;
             }
-            
+
             // If URL has changed, check if we're in a new chat
             const chatId = getCurrentChatId();
             if (chatId && chatId !== currentChatUrl) {
@@ -1977,7 +1991,7 @@
                 loadSavedMessages();
             }
         });
-        
+
         // Start observing the target node for configured mutations
         observer.observe(document.body, config);
     }
