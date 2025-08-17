@@ -1404,7 +1404,7 @@
                 deleteButton.className = 'saved-message-delete';
                 deleteButton.textContent = 'Delete';
                 deleteButton.dataset.savedMessageUiElement = 'true';
-                deleteButton.onclick = () => deleteMessage(index);
+                deleteButton.onclick = () => deleteMessage(message.timestamp);
 
                 actionsDiv.appendChild(useButton);
                 actionsDiv.appendChild(copyButton);
@@ -1864,8 +1864,8 @@
     }
 
     // Function to delete a saved message
-    function deleteMessage(index) {
-        console.log('DEBUG: deleteMessage() called, index:', index);
+    function deleteMessage(timestamp) {
+        console.log('DEBUG: deleteMessage() called, timestamp:', timestamp);
         const chatId = getCurrentChatId();
         if (!chatId) {
             console.log('DEBUG: deleteMessage() - no chatId, returning');
@@ -1874,9 +1874,17 @@
 
         chrome.storage.local.get(chatId, (result) => {
             const savedMessages = result[chatId] || [];
-            const deletedMessage = savedMessages[index];
+
+            // Find the message by timestamp instead of using index
+            const messageIndex = savedMessages.findIndex(msg => msg.timestamp === timestamp);
+            if (messageIndex === -1) {
+                console.log('DEBUG: Message not found with timestamp:', timestamp);
+                return;
+            }
+
+            const deletedMessage = savedMessages[messageIndex];
             console.log('DEBUG: Deleting message:', deletedMessage);
-            savedMessages.splice(index, 1);
+            savedMessages.splice(messageIndex, 1);
 
             chrome.storage.local.set({ [chatId]: savedMessages }, () => {
                 console.log('DEBUG: Message deleted from local storage, chatId:', chatId);
